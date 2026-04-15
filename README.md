@@ -2,6 +2,34 @@
 
 System Lens is a trust-first desktop app that helps users understand, search, and organize local files with local AI.
 
+## Run the project
+
+**Prerequisites:** [Node.js](https://nodejs.org/) 18+ and npm (included with Node).
+
+All commands below are run from the **repository root** (the folder that contains `package.json`).
+
+| Step | What to run |
+|------|-------------|
+| **1. Install all packages** | `npm install` |
+| **2. Build TypeScript** | `npm run build` |
+| **3. Start the server** | `npm --workspace @system-lens/desktop start` |
+
+**Open the app:** [http://localhost:3180](http://localhost:3180)
+
+**Optional — different port** (PowerShell): set `PORT` then start:
+
+```powershell
+$env:PORT=3190; npm --workspace @system-lens/desktop start
+```
+
+**One-shot flow** (copy-paste after `cd` into the repo):
+
+```bash
+npm install
+npm run build
+npm --workspace @system-lens/desktop start
+```
+
 ## What it is
 
 - AI-powered file intelligence over your local machine.
