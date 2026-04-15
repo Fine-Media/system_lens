@@ -1,6 +1,6 @@
 # Desktop App Module
 
-Electron-based UI and interaction layer for LocalMind.
+Electron-based UI and interaction layer for System Lens.
 
 ## Responsibilities
 

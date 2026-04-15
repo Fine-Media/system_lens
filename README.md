@@ -1,6 +1,6 @@
-# LocalMind (working title)
+# System Lens
 
-LocalMind is a trust-first desktop app that helps users understand, search, and organize local files with local AI.
+System Lens is a trust-first desktop app that helps users understand, search, and organize local files with local AI.
 
 ## What it is
 
