@@ -6,7 +6,16 @@ import { fileURLToPath } from "node:url";
 import { getLogger, initLogger, type LogLevel } from "@system-lens/logger";
 import { AIAssistantService } from "@system-lens/ai-assistant";
 import { AutomationService } from "@system-lens/automation";
-import { IndexerService } from "@system-lens/indexer";
+import {
+  compileIgnorePatterns,
+  IndexerService,
+  indexConfigPath,
+  loadOrCreateIndexConfig,
+  saveIndexConfig,
+  validateIgnorePatternSources,
+  validateRootsForIndexing,
+  type IndexRootsConfig,
+} from "@system-lens/indexer";
 import { SafetyService } from "@system-lens/safety";
 import { SearchService } from "@system-lens/search";
 import { SharedDb } from "@system-lens/shared-db";
@@ -48,18 +57,41 @@ const assistantService = new AIAssistantService(db, searchService, insightsServi
 const automationService = new AutomationService(db, safetyService);
 const searchController = new SearchController(searchService);
 
-async function seedIndex(): Promise<void> {
+let indexConfig!: IndexRootsConfig;
+
+function defaultIndexScopePath(): string {
+  return indexConfig.roots[0] ?? workspaceRoot;
+}
+
+async function initIndexConfig(): Promise<void> {
+  indexConfig = await loadOrCreateIndexConfig(workspaceRoot);
+}
+
+async function runFullIndex(): Promise<void> {
   const startedAt = Date.now();
-  log.info("index.seed.start", { root: workspaceRoot });
-  await indexer.startIndexing([workspaceRoot], {
-    maxDepth: 4,
-    ignorePatterns: [/node_modules/i, /[\\/]dist[\\/]/i, /[\\/]\.git[\\/]/i],
+  const cfg = indexConfig;
+  const patterns = compileIgnorePatterns(cfg.ignorePatternSources);
+  log.info("index.seed.start", { roots: cfg.roots, maxDepth: cfg.maxDepth });
+  await indexer.startIndexing(cfg.roots, {
+    ignorePatterns: patterns,
+    maxDepth: cfg.maxDepth,
   });
-  const findings = insightsService.runDetectors({ pathPrefix: workspaceRoot });
+  const pathPrefix = cfg.roots[0] ?? workspaceRoot;
+  const findings = insightsService.runDetectors({ pathPrefix });
   log.info("index.seed.done", {
     durationMs: Date.now() - startedAt,
     findingCount: findings.length,
   });
+}
+
+function parseStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v));
+  }
+  if (typeof value === "string") {
+    return value.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  }
+  return [];
 }
 
 function sendJson(res: http.ServerResponse, statusCode: number, payload: unknown): void {
@@ -88,9 +120,76 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     sendJson(res, 200, {
       app: "System Lens",
       indexer: indexer.getIndexerStatus(),
+      indexRoots: indexConfig.roots.length,
       rules: automationService.listRules().length,
       pendingFindings: insightsService.getFindings({ status: "open" }).length,
     });
+    return;
+  }
+
+  if (url.pathname === "/api/config" && req.method === "GET") {
+    sendJson(res, 200, {
+      configFile: indexConfigPath(workspaceRoot),
+      ...indexConfig,
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/config" && req.method === "PUT") {
+    const body = await readJsonBody(req);
+    const rootsRaw = parseStringList(body.roots);
+    const rootsToValidate = rootsRaw.length > 0 ? rootsRaw : indexConfig.roots;
+    const rootsCheck = await validateRootsForIndexing(rootsToValidate, workspaceRoot);
+    if (!rootsCheck.ok) {
+      sendJson(res, 400, { error: "Invalid index roots.", details: rootsCheck.errors });
+      return;
+    }
+
+    const ignoreRaw = parseStringList(body.ignorePatternSources ?? body.ignorePatterns);
+    const ign = validateIgnorePatternSources(ignoreRaw.length > 0 ? ignoreRaw : indexConfig.ignorePatternSources);
+    if (!ign.ok) {
+      sendJson(res, 400, { error: "Invalid ignore patterns.", details: ign.errors });
+      return;
+    }
+
+    let maxDepth = typeof body.maxDepth === "number" ? body.maxDepth : indexConfig.maxDepth;
+    if (!Number.isFinite(maxDepth)) {
+      maxDepth = indexConfig.maxDepth;
+    }
+    maxDepth = Math.min(Math.max(Math.floor(maxDepth), 0), 50);
+
+    const next: IndexRootsConfig = {
+      version: 1,
+      roots: rootsCheck.normalized,
+      ignorePatternSources: ign.sources,
+      maxDepth,
+    };
+
+    await saveIndexConfig(workspaceRoot, next);
+    indexConfig = next;
+    log.info("config.saved", {
+      rootCount: next.roots.length,
+      ignorePatternCount: next.ignorePatternSources.length,
+      maxDepth: next.maxDepth,
+    });
+
+    void runFullIndex().catch((err: unknown) => {
+      log.error("index.rebuild.failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    sendJson(res, 200, { ok: true, config: next });
+    return;
+  }
+
+  if (url.pathname === "/api/index/rebuild" && req.method === "POST") {
+    void runFullIndex().catch((err: unknown) => {
+      log.error("index.rebuild.failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+    sendJson(res, 202, { accepted: true });
     return;
   }
 
@@ -110,7 +209,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
   if (url.pathname === "/api/insights/run" && req.method === "POST") {
     const body = await readJsonBody(req);
-    const pathPrefix = typeof body.pathPrefix === "string" ? body.pathPrefix : workspaceRoot;
+    const pathPrefix = typeof body.pathPrefix === "string" ? body.pathPrefix : defaultIndexScopePath();
     const findings = insightsService.runDetectors({ pathPrefix });
     sendJson(res, 200, { count: findings.length, findings });
     return;
@@ -130,14 +229,14 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   if (url.pathname === "/api/assistant/ask" && req.method === "POST") {
     const body = await readJsonBody(req);
     const question = typeof body.question === "string" ? body.question : "";
-    const pathPrefix = typeof body.pathPrefix === "string" ? body.pathPrefix : workspaceRoot;
+    const pathPrefix = typeof body.pathPrefix === "string" ? body.pathPrefix : defaultIndexScopePath();
     const response = await assistantService.ask(question, { pathPrefix });
     sendJson(res, 200, response);
     return;
   }
 
   if (url.pathname === "/api/assistant/explain-computer" && req.method === "GET") {
-    sendJson(res, 200, assistantService.explainComputer({ pathPrefix: workspaceRoot }));
+    sendJson(res, 200, assistantService.explainComputer({ pathPrefix: defaultIndexScopePath() }));
     return;
   }
 
@@ -150,7 +249,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     const body = await readJsonBody(req);
     const rule = automationService.createRule({
       name: typeof body.name === "string" ? body.name : "Untitled Rule",
-      scopePathPrefix: typeof body.scopePathPrefix === "string" ? body.scopePathPrefix : workspaceRoot,
+      scopePathPrefix: typeof body.scopePathPrefix === "string" ? body.scopePathPrefix : defaultIndexScopePath(),
       mode: body.mode === "archive-stale" ? "archive-stale" : "sort-by-extension",
       staleDays: typeof body.staleDays === "number" ? body.staleDays : undefined,
     });
@@ -218,7 +317,8 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 }
 
 async function bootstrap(): Promise<void> {
-  await seedIndex();
+  await initIndexConfig();
+  await runFullIndex();
 
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();

@@ -16,6 +16,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@system-lens/shared-db": "0.1.0"
+    "@system-lens/shared-db": "file:../shared-db"
   }
 }

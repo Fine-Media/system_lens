@@ -13,149 +13,391 @@
         --muted: #9db0cc;
         --accent: #66d9ef;
         --border: #2a3e58;
+        --log-bg: #080d14;
+        --tab-hover: #1a283d;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
       body {
+        height: 100%;
         margin: 0;
-        font-family: Segoe UI, sans-serif;
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
+        display: flex;
+        flex-direction: column;
       }
 
-      .page {
+      .app-header {
+        flex-shrink: 0;
+        padding: 16px 24px 0;
+        max-width: 1400px;
         margin: 0 auto;
-        max-width: 1080px;
-        padding: 24px;
+        width: 100%;
       }
 
-      h1,
-      h2 {
+      h1 {
         margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
       }
 
       .subtitle {
-        margin: 6px 0 20px;
+        margin: 6px 0 0;
         color: var(--muted);
+        font-size: 0.9rem;
       }
 
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 14px;
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 16px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0;
       }
 
-      .panel {
-        border: 1px solid var(--border);
-        border-radius: 10px;
+      .tab {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.95rem;
+        padding: 12px 18px;
+        cursor: pointer;
+        border-radius: 8px 8px 0 0;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+      }
+
+      .tab:hover {
+        color: var(--text);
+        background: var(--tab-hover);
+      }
+
+      .tab[aria-selected="true"] {
+        color: var(--accent);
+        font-weight: 600;
+        border-bottom-color: var(--accent);
         background: var(--panel);
-        padding: 12px;
       }
 
-      .panel h2 {
-        font-size: 15px;
-        margin-bottom: 10px;
+      .shell {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 0 24px 24px;
+      }
+
+      .tab-panel {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        gap: 14px;
+        padding-top: 16px;
+      }
+
+      .tab-panel.is-active {
+        display: flex;
+      }
+
+      .panel-tools {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .panel-tools h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
       }
 
       .row {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 8px;
+        align-items: center;
+      }
+
+      .row > input[type="text"],
+      .row > input:not([type="number"]) {
+        flex: 1;
+        min-width: 120px;
       }
 
       input,
       textarea,
       button {
-        width: 100%;
         border: 1px solid var(--border);
         border-radius: 8px;
         background: #0f1a2c;
         color: var(--text);
-        padding: 8px 10px;
-        font-size: 13px;
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 100px;
+        resize: vertical;
+        font-family: inherit;
+        line-height: 1.45;
       }
 
       button {
-        width: auto;
         cursor: pointer;
         background: #1f2f47;
+        padding: 10px 16px;
+        white-space: nowrap;
+      }
+
+      button:hover {
+        border-color: var(--accent);
       }
 
       .meta {
         color: var(--muted);
-        font-size: 12px;
+        font-size: 13px;
+        margin: 0;
       }
 
-      pre {
-        margin: 8px 0 0;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: #0f1a2c;
-        max-height: 240px;
-        overflow: auto;
+      label.meta {
+        display: block;
+        margin-top: 4px;
+      }
+
+      .log-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: min(52vh, 720px);
+      }
+
+      .log-wrap label {
         font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .log-view {
+        flex: 1;
+        margin: 0;
+        padding: 16px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--log-bg);
+        color: #c8d4e8;
+        font-family: "Cascadia Code", "Consolas", "ui-monospace", monospace;
+        font-size: 13px;
+        line-height: 1.55;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        tab-size: 2;
+      }
+
+      #search-meta {
+        margin: 0;
       }
     </style>
   </head>
   <body>
-    <main class="page">
+    <header class="app-header">
       <h1>System Lens</h1>
-      <p class="subtitle">Search + Insights + Assistant + Automation + Safety (MVP)</p>
-      <section class="grid">
-        <article class="panel">
+      <p class="subtitle">Local search, insights, assistant, and safety (MVP)</p>
+      <div class="tabs" role="tablist" aria-label="Main sections">
+        <button type="button" class="tab" role="tab" id="tab-btn-index" aria-selected="true" aria-controls="panel-index" data-tab="index">
+          Index
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-btn-search" aria-selected="false" aria-controls="panel-search" data-tab="search">
+          Search
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-btn-insights" aria-selected="false" aria-controls="panel-insights" data-tab="insights">
+          Insights
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-btn-assistant" aria-selected="false" aria-controls="panel-assistant" data-tab="assistant">
+          Assistant
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-btn-automation" aria-selected="false" aria-controls="panel-automation" data-tab="automation">
+          Automation &amp; safety
+        </button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <section id="panel-index" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-btn-index" data-panel="index">
+        <div class="panel-tools">
+          <h2>Index roots</h2>
+          <p class="meta" id="config-path"></p>
+          <label class="meta" for="config-roots">Roots (one absolute path per line)</label>
+          <textarea id="config-roots" rows="5" placeholder="D:\path\to\folder"></textarea>
+          <label class="meta" for="config-ignore">Ignore patterns (regex, one per line)</label>
+          <textarea id="config-ignore" rows="5"></textarea>
+          <div class="row">
+            <label class="meta" for="config-depth">Max depth</label>
+            <input id="config-depth" type="number" min="0" max="50" style="max-width: 100px" />
+          </div>
+          <div class="row">
+            <button id="config-load" type="button">Load</button>
+            <button id="config-save" type="button">Save &amp; reindex</button>
+            <button id="config-rebuild" type="button">Reindex only</button>
+          </div>
+        </div>
+        <div class="log-wrap">
+          <label for="config-output">Output</label>
+          <pre id="config-output" class="log-view" tabindex="0"></pre>
+        </div>
+      </section>
+
+      <section id="panel-search" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-search" hidden data-panel="search">
+        <div class="panel-tools">
           <h2>Search</h2>
           <div class="row">
-            <input id="search-query" placeholder="Search files..." />
-            <input id="search-ext" placeholder="ext" />
-            <button id="search-run">Run</button>
+            <input id="search-query" type="text" placeholder="Search files..." />
+            <input id="search-ext" type="text" placeholder="ext (optional)" style="max-width: 140px" />
+            <button id="search-run" type="button">Run</button>
           </div>
           <p id="search-meta" class="meta">Ready.</p>
-          <pre id="search-output"></pre>
-        </article>
+        </div>
+        <div class="log-wrap">
+          <label for="search-output">Results</label>
+          <pre id="search-output" class="log-view" tabindex="0"></pre>
+        </div>
+      </section>
 
-        <article class="panel">
+      <section id="panel-insights" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-insights" hidden data-panel="insights">
+        <div class="panel-tools">
           <h2>Insights</h2>
           <div class="row">
-            <button id="insights-run">Run Detectors</button>
-            <button id="insights-list">List Findings</button>
+            <button id="insights-run" type="button">Run detectors</button>
+            <button id="insights-list" type="button">List findings</button>
           </div>
-          <pre id="insights-output"></pre>
-        </article>
-
-        <article class="panel">
-          <h2>Assistant</h2>
-          <div class="row">
-            <textarea id="assistant-question" rows="3" placeholder="Ask about your files..."></textarea>
-          </div>
-          <div class="row">
-            <button id="assistant-ask">Ask</button>
-            <button id="assistant-explain">Explain Computer</button>
-          </div>
-          <pre id="assistant-output"></pre>
-        </article>
-
-        <article class="panel">
-          <h2>Automation + Safety</h2>
-          <div class="row">
-            <input id="rule-name" value="Sort by extension in workspace" />
-          </div>
-          <div class="row">
-            <button id="rule-create">Create Rule</button>
-            <button id="rule-list">List Rules</button>
-            <button id="safety-logs">Safety Logs</button>
-          </div>
-          <pre id="automation-output"></pre>
-        </article>
+        </div>
+        <div class="log-wrap">
+          <label for="insights-output">Output</label>
+          <pre id="insights-output" class="log-view" tabindex="0"></pre>
+        </div>
       </section>
-    </main>
+
+      <section id="panel-assistant" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-assistant" hidden data-panel="assistant">
+        <div class="panel-tools">
+          <h2>Assistant</h2>
+          <textarea id="assistant-question" rows="4" placeholder="Ask about your files..."></textarea>
+          <div class="row">
+            <button id="assistant-ask" type="button">Ask</button>
+            <button id="assistant-explain" type="button">Explain computer</button>
+          </div>
+        </div>
+        <div class="log-wrap">
+          <label for="assistant-output">Output</label>
+          <pre id="assistant-output" class="log-view" tabindex="0"></pre>
+        </div>
+      </section>
+
+      <section id="panel-automation" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-automation" hidden data-panel="automation">
+        <div class="panel-tools">
+          <h2>Automation &amp; safety</h2>
+          <div class="row">
+            <input id="rule-name" type="text" value="Sort by extension in workspace" style="flex: 2" />
+          </div>
+          <div class="row">
+            <button id="rule-create" type="button">Create rule</button>
+            <button id="rule-list" type="button">List rules</button>
+            <button id="safety-logs" type="button">Safety logs</button>
+          </div>
+        </div>
+        <div class="log-wrap">
+          <label for="automation-output">Output</label>
+          <pre id="automation-output" class="log-view" tabindex="0"></pre>
+        </div>
+      </section>
+    </div>
 
     <script type="module">
       const $ = (id) => document.getElementById(id);
       const stringify = (value) => JSON.stringify(value, null, 2);
+
+      const tabButtons = document.querySelectorAll(".tab[data-tab]");
+      const tabPanels = document.querySelectorAll(".tab-panel[data-panel]");
+
+      function activateTab(name) {
+        tabButtons.forEach((btn) => {
+          const on = btn.dataset.tab === name;
+          btn.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        tabPanels.forEach((panel) => {
+          const on = panel.dataset.panel === name;
+          panel.classList.toggle("is-active", on);
+          panel.hidden = !on;
+        });
+      }
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+      });
+
+      async function loadIndexConfig() {
+        const payload = await callJson("/api/config");
+        $("config-path").textContent = `Config file: ${payload.configFile}`;
+        $("config-roots").value = payload.roots.join("\n");
+        $("config-ignore").value = payload.ignorePatternSources.join("\n");
+        $("config-depth").value = String(payload.maxDepth);
+        $("config-output").textContent = stringify(payload);
+      }
+
+      $("config-load").addEventListener("click", () => {
+        loadIndexConfig().catch((e) => {
+          $("config-output").textContent = e.message;
+        });
+      });
+
+      $("config-save").addEventListener("click", () => {
+        (async () => {
+          const roots = $("config-roots").value.split(/\r?\n/).filter((line) => line.trim().length > 0);
+          const ignorePatternSources = $("config-ignore")
+            .value.split(/\r?\n/)
+            .filter((line) => line.trim().length > 0);
+          const maxDepth = Number($("config-depth").value);
+          const payload = await fetch("/api/config", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ roots, ignorePatternSources, maxDepth }),
+          });
+          const data = await payload.json();
+          if (!payload.ok) {
+            throw new Error(data.details ? data.details.join("; ") : data.error || "Save failed");
+          }
+          $("config-output").textContent = stringify(data);
+        })().catch((e) => {
+          $("config-output").textContent = e instanceof Error ? e.message : String(e);
+        });
+      });
+
+      $("config-rebuild").addEventListener("click", async () => {
+        const payload = await callJson("/api/index/rebuild", { method: "POST" });
+        $("config-output").textContent = stringify(payload);
+      });
+
+      loadIndexConfig().catch(() => {});
 
       async function callJson(url, init) {
         const response = await fetch(url, init);

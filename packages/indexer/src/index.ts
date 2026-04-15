@@ -78,7 +78,11 @@ export class IndexerService {
       return;
     }
 
-    const stats = await fs.lstat(currentPath);
+    const stats = await fs.lstat(currentPath).catch(() => null);
+    if (!stats) {
+      return;
+    }
+
     const updatedAt = stats.mtime.toISOString();
     const createdAt = stats.birthtime.toISOString();
 
@@ -92,7 +96,7 @@ export class IndexerService {
         sizeBytes: stats.size,
       });
 
-      const entries = await fs.readdir(currentPath);
+      const entries = await fs.readdir(currentPath).catch(() => [] as string[]);
       for (const entry of entries) {
         await this.indexPath(path.join(currentPath, entry), options, depth + 1);
       }
@@ -116,7 +120,7 @@ export class IndexerService {
     }
 
     this.status.scannedFiles += 1;
-    const hashHint = await this.computeHashHint(currentPath);
+    const hashHint = await this.computeHashHint(currentPath).catch(() => undefined);
     this.db.upsertFile({
       path: currentPath,
       type: "file",
@@ -150,3 +154,5 @@ export class IndexerService {
     }
   }
 }
+
+export * from "./index-config.js";

@@ -16,8 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@system-lens/search": "0.1.0",
-    "@system-lens/shared-db": "0.1.0",
-    "@system-lens/system-insights": "0.1.0"
+    "@system-lens/search": "file:../search",
+    "@system-lens/shared-db": "file:../shared-db",
+    "@system-lens/system-insights": "file:../system-insights"
   }
 }
