@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@system-lens/shared-db": [
+        "packages/shared-db/src/index.ts"
+      ],
+      "@system-lens/indexer": [
+        "packages/indexer/src/index.ts"
+      ],
+      "@system-lens/search": [
+        "packages/search/src/index.ts"
+      ],
+      "@system-lens/system-insights": [
+        "packages/system-insights/src/index.ts"
+      ],
+      "@system-lens/safety": [
+        "packages/safety/src/index.ts"
+      ],
+      "@system-lens/ai-assistant": [
+        "packages/ai-assistant/src/index.ts"
+      ],
+      "@system-lens/automation": [
+        "packages/automation/src/index.ts"
+      ],
+      "@system-lens/logger": [
+        "packages/logger/src/index.ts"
+      ]
+    },
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "composite": true
+  }
+}

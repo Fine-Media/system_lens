@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>System Lens</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1320;
+        --panel: #121d30;
+        --text: #f0f5ff;
+        --muted: #9db0cc;
+        --accent: #66d9ef;
+        --border: #2a3e58;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Segoe UI, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .page {
+        margin: 0 auto;
+        max-width: 1080px;
+        padding: 24px;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+      }
+
+      .subtitle {
+        margin: 6px 0 20px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 14px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 12px;
+      }
+
+      .panel h2 {
+        font-size: 15px;
+        margin-bottom: 10px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      input,
+      textarea,
+      button {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0f1a2c;
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
+      button {
+        width: auto;
+        cursor: pointer;
+        background: #1f2f47;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      pre {
+        margin: 8px 0 0;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #0f1a2c;
+        max-height: 240px;
+        overflow: auto;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>System Lens</h1>
+      <p class="subtitle">Search + Insights + Assistant + Automation + Safety (MVP)</p>
+      <section class="grid">
+        <article class="panel">
+          <h2>Search</h2>
+          <div class="row">
+            <input id="search-query" placeholder="Search files..." />
+            <input id="search-ext" placeholder="ext" />
+            <button id="search-run">Run</button>
+          </div>
+          <p id="search-meta" class="meta">Ready.</p>
+          <pre id="search-output"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Insights</h2>
+          <div class="row">
+            <button id="insights-run">Run Detectors</button>
+            <button id="insights-list">List Findings</button>
+          </div>
+          <pre id="insights-output"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Assistant</h2>
+          <div class="row">
+            <textarea id="assistant-question" rows="3" placeholder="Ask about your files..."></textarea>
+          </div>
+          <div class="row">
+            <button id="assistant-ask">Ask</button>
+            <button id="assistant-explain">Explain Computer</button>
+          </div>
+          <pre id="assistant-output"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Automation + Safety</h2>
+          <div class="row">
+            <input id="rule-name" value="Sort by extension in workspace" />
+          </div>
+          <div class="row">
+            <button id="rule-create">Create Rule</button>
+            <button id="rule-list">List Rules</button>
+            <button id="safety-logs">Safety Logs</button>
+          </div>
+          <pre id="automation-output"></pre>
+        </article>
+      </section>
+    </main>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const stringify = (value) => JSON.stringify(value, null, 2);
+
+      async function callJson(url, init) {
+        const response = await fetch(url, init);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || `Request failed for ${url}`);
+        }
+        return payload;
+      }
+
+      $("search-run").addEventListener("click", async () => {
+        const params = new URLSearchParams();
+        params.set("q", $("search-query").value || "");
+        if ($("search-ext").value) params.set("ext", $("search-ext").value);
+        const start = performance.now();
+        const payload = await callJson(`/api/search?${params.toString()}`);
+        $("search-meta").textContent = `${payload.count} results in ${Math.round(performance.now() - start)}ms`;
+        $("search-output").textContent = stringify(payload.results.slice(0, 15));
+      });
+
+      $("insights-run").addEventListener("click", async () => {
+        const payload = await callJson("/api/insights/run", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        $("insights-output").textContent = stringify(payload);
+      });
+
+      $("insights-list").addEventListener("click", async () => {
+        const payload = await callJson("/api/insights/findings?status=open");
+        $("insights-output").textContent = stringify(payload.findings.slice(0, 20));
+      });
+
+      $("assistant-ask").addEventListener("click", async () => {
+        const payload = await callJson("/api/assistant/ask", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ question: $("assistant-question").value || "What should I organize first?" }),
+        });
+        $("assistant-output").textContent = stringify(payload);
+      });
+
+      $("assistant-explain").addEventListener("click", async () => {
+        const payload = await callJson("/api/assistant/explain-computer");
+        $("assistant-output").textContent = stringify(payload);
+      });
+
+      $("rule-create").addEventListener("click", async () => {
+        const payload = await callJson("/api/automation/rules", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: $("rule-name").value, mode: "sort-by-extension" }),
+        });
+        $("automation-output").textContent = stringify(payload);
+      });
+
+      $("rule-list").addEventListener("click", async () => {
+        const payload = await callJson("/api/automation/rules");
+        $("automation-output").textContent = stringify(payload.rules);
+      });
+
+      $("safety-logs").addEventListener("click", async () => {
+        const payload = await callJson("/api/safety/logs");
+        $("automation-output").textContent = stringify(payload.logs.slice(0, 20));
+      });
+    </script>
+  </body>
+</html>

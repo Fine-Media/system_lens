@@ -1,0 +1,23 @@
+{
+  "name": "@system-lens/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@system-lens/ai-assistant": "0.1.0",
+    "@system-lens/automation": "0.1.0",
+    "@system-lens/indexer": "0.1.0",
+    "@system-lens/safety": "0.1.0",
+    "@system-lens/search": "0.1.0",
+    "@system-lens/shared-db": "0.1.0",
+    "@system-lens/system-insights": "0.1.0",
+    "@system-lens/logger": "0.1.0"
+  }
+}

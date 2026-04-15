@@ -1,0 +1,32 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/shared-db"
+    },
+    {
+      "path": "./packages/indexer"
+    },
+    {
+      "path": "./packages/search"
+    },
+    {
+      "path": "./packages/system-insights"
+    },
+    {
+      "path": "./packages/safety"
+    },
+    {
+      "path": "./packages/ai-assistant"
+    },
+    {
+      "path": "./packages/automation"
+    },
+    {
+      "path": "./packages/logger"
+    },
+    {
+      "path": "./apps/desktop"
+    }
+  ]
+}
