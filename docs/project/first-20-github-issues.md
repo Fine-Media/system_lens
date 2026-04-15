@@ -2,6 +2,8 @@
 
 This backlog is ordered for phased delivery and parallel contributor onboarding.
 
+**Current status:** Much of the M1 foundation is implemented in the repo. For **open follow-ups you can file today** (CI, tests, migrations, Electron, UI polish), see **[GITHUB_ISSUES_TO_CREATE.md](./GITHUB_ISSUES_TO_CREATE.md)**.
+
 ## Standard Issue Template
 
 Each issue should contain:
