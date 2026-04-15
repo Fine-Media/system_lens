@@ -8,16 +8,20 @@ import { AIAssistantService } from "@system-lens/ai-assistant";
 import { AutomationService } from "@system-lens/automation";
 import {
   compileIgnorePatterns,
+  INDEX_STATE_VERSION,
   IndexerService,
   indexConfigPath,
   loadOrCreateIndexConfig,
   saveIndexConfig,
+  saveIndexState,
+  shouldRunStartupFullIndex,
+  startIndexWatchers,
   validateIgnorePatternSources,
   validateRootsForIndexing,
   type IndexRootsConfig,
 } from "@system-lens/indexer";
 import { SafetyService } from "@system-lens/safety";
-import { SearchService } from "@system-lens/search";
+import { createEmbeddingProviderFromEnv, SearchService } from "@system-lens/search";
 import { SharedDb } from "@system-lens/shared-db";
 import { SystemInsightsService } from "@system-lens/system-insights";
 import { SearchController } from "./controllers/SearchController.js";
@@ -50,7 +54,8 @@ const dbPath = path.resolve(workspaceRoot, ".system-lens.sqlite");
 
 const db = new SharedDb(dbPath);
 const indexer = new IndexerService(db);
-const searchService = new SearchService(db);
+const embeddingProvider = createEmbeddingProviderFromEnv();
+const searchService = new SearchService(db, embeddingProvider);
 const insightsService = new SystemInsightsService(db);
 const safetyService = new SafetyService(db);
 const assistantService = new AIAssistantService(db, searchService, insightsService);
@@ -58,6 +63,7 @@ const automationService = new AutomationService(db, safetyService);
 const searchController = new SearchController(searchService);
 
 let indexConfig!: IndexRootsConfig;
+let stopIndexWatchers: (() => void) | null = null;
 
 function defaultIndexScopePath(): string {
   return indexConfig.roots[0] ?? workspaceRoot;
@@ -78,9 +84,28 @@ async function runFullIndex(): Promise<void> {
   });
   const pathPrefix = cfg.roots[0] ?? workspaceRoot;
   const findings = insightsService.runDetectors({ pathPrefix });
+
+  const warmMax = Number(process.env.SEARCH_WARM_EMBEDDINGS_MAX ?? "0");
+  if (Number.isFinite(warmMax) && warmMax > 0) {
+    void searchService
+      .warmEmbeddingsForRecentFiles(Math.floor(warmMax), { pathPrefix })
+      .then((r) => {
+        log.info("search.embed.warm.done", r);
+      })
+      .catch((err: unknown) => {
+        log.warn("search.embed.warm.failed", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }
+
   log.info("index.seed.done", {
     durationMs: Date.now() - startedAt,
     findingCount: findings.length,
+  });
+  await saveIndexState(workspaceRoot, {
+    version: INDEX_STATE_VERSION,
+    lastFullIndexAt: new Date().toISOString(),
   });
 }
 
@@ -318,7 +343,16 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
 async function bootstrap(): Promise<void> {
   await initIndexConfig();
-  await runFullIndex();
+
+  const runFull = await shouldRunStartupFullIndex(workspaceRoot);
+  if (runFull) {
+    await runFullIndex();
+  } else {
+    log.info("index.seed.skip", {
+      reason:
+        "A full index already completed on this machine. Use POST /api/index/rebuild or set INDEX_FORCE_FULL=1 to crawl again.",
+    });
+  }
 
   const server = http.createServer((req, res) => {
     const startedAt = Date.now();
@@ -356,8 +390,33 @@ async function bootstrap(): Promise<void> {
       port,
       url: `http://localhost:${port}`,
       logLevel: LOG_LEVEL,
+      embedder: embeddingProvider.modelLabel(),
     });
+
+    if (process.env.INDEX_WATCH !== "0") {
+      const patterns = compileIgnorePatterns(indexConfig.ignorePatternSources);
+      stopIndexWatchers = startIndexWatchers(
+        indexConfig.roots,
+        indexer,
+        { ignorePatterns: patterns, maxDepth: indexConfig.maxDepth },
+        {
+          onError: (err) => {
+            log.warn("index.watch.error", { message: err.message });
+          },
+        },
+      );
+      log.info("index.watch.started", { roots: indexConfig.roots.length });
+    }
   });
+
+  const shutdown = (): void => {
+    stopIndexWatchers?.();
+    stopIndexWatchers = null;
+    server.close(() => process.exit(0));
+  };
+
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 }
 
 bootstrap().catch((error: unknown) => {

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import pathModule from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 export type FileStatus = "active" | "deleted";
@@ -319,6 +320,37 @@ export class SharedDb {
   markFileDeleted(path: string): void {
     const id = fileIdFromPath(path);
     this.db.prepare(`UPDATE files SET status = 'deleted', updated_at = ? WHERE id = ?`).run(nowIso(), id);
+  }
+
+  /**
+   * Marks the path and any indexed descendants as deleted and drops their embeddings.
+   * Used when the filesystem no longer has that path (e.g. deleted file or folder).
+   */
+  tombstonePathAndDescendants(targetPath: string): number {
+    const norm = pathModule.normalize(targetPath);
+    const likePattern = norm + pathModule.sep + "%";
+    const rows = this.db
+      .prepare(
+        `SELECT id FROM files WHERE status = 'active' AND (path = ? OR path LIKE ?)`,
+      )
+      .all(norm, likePattern) as Array<{ id: string }>;
+
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    const updatedAt = nowIso();
+    for (const row of rows) {
+      this.removeEmbedding(row.id);
+    }
+
+    this.db
+      .prepare(
+        `UPDATE files SET status = 'deleted', updated_at = ? WHERE status = 'active' AND (path = ? OR path LIKE ?)`,
+      )
+      .run(updatedAt, norm, likePattern);
+
+    return rows.length;
   }
 
   upsertEmbedding(fileId: string, model: string, vectorRef: string): EmbeddingRecord {

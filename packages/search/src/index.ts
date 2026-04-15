@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { QueryFileResult, SearchFilters, SharedDb } from "@system-lens/shared-db";
+import { buildEmbeddingInput } from "./text-for-embedding.js";
 
 export interface SearchResult extends QueryFileResult {
   rationale: string;
@@ -7,13 +8,70 @@ export interface SearchResult extends QueryFileResult {
 
 export interface EmbeddingProvider {
   embedText(text: string): Promise<number[]>;
+  /** Label stored with embeddings (e.g. `deterministic-v1`, `ollama:nomic-embed-text`). */
+  modelLabel(): string;
 }
 
 class DeterministicEmbeddingProvider implements EmbeddingProvider {
+  modelLabel(): string {
+    return "deterministic-v1";
+  }
+
   async embedText(text: string): Promise<number[]> {
     const bytes = crypto.createHash("sha256").update(text).digest();
     return Array.from({ length: 16 }, (_, index) => bytes[index] / 255);
   }
+}
+
+/**
+ * Uses Ollama's `/api/embeddings` endpoint. Requires a running Ollama instance and a pulled
+ * embedding model (for example `ollama pull nomic-embed-text`).
+ */
+export class OllamaEmbeddingProvider implements EmbeddingProvider {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly model: string,
+  ) {}
+
+  modelLabel(): string {
+    return `ollama:${this.model}`;
+  }
+
+  async embedText(text: string): Promise<number[]> {
+    const url = `${this.baseUrl.replace(/\/$/, "")}/api/embeddings`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: this.model, prompt: text }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Ollama embeddings failed (${response.status}): ${detail.slice(0, 200)}`);
+    }
+
+    const data = (await response.json()) as { embedding?: number[]; embeddings?: number[][] };
+    const vector = data.embedding ?? data.embeddings?.[0];
+    if (!vector?.length) {
+      throw new Error("Ollama embeddings response missing embedding vector.");
+    }
+    return vector;
+  }
+}
+
+/**
+ * Prefer Ollama when `OLLAMA_HOST` or `OLLAMA_BASE_URL` is set; otherwise deterministic hashes.
+ * Override model with `OLLAMA_EMBED_MODEL` (default `nomic-embed-text`).
+ */
+export { buildEmbeddingInput, isProbablyTextualFile } from "./text-for-embedding.js";
+
+export function createEmbeddingProviderFromEnv(): EmbeddingProvider {
+  const raw = process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL;
+  const model = (process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text").trim();
+  if (raw?.trim()) {
+    return new OllamaEmbeddingProvider(raw.trim(), model);
+  }
+  return new DeterministicEmbeddingProvider();
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -46,14 +104,57 @@ export class SearchService {
   }
 
   async indexFileEmbedding(fileId: string): Promise<void> {
-    const file = this.db.listFiles(5_000).find((record) => record.id === fileId);
+    const file = this.db.getFileById(fileId);
     if (!file) {
       throw new Error(`Cannot index missing file: ${fileId}`);
     }
 
-    const vector = await this.embedder.embedText(file.path);
+    this.embeddingCache.delete(fileId);
+    const input = await buildEmbeddingInput(file);
+    const vector = await this.embedder.embedText(input);
     this.embeddingCache.set(fileId, vector);
-    this.db.upsertEmbedding(fileId, "deterministic-v1", JSON.stringify(vector));
+    this.db.upsertEmbedding(fileId, this.embedder.modelLabel(), JSON.stringify(vector));
+  }
+
+  /**
+   * Pre-compute embeddings for recently updated files (by DB order). Useful after a full index
+   * when Ollama is available. Controlled by `SEARCH_WARM_EMBEDDINGS_MAX` from the desktop server.
+   */
+  async warmEmbeddingsForRecentFiles(maxFiles: number, filters: SearchFilters = {}): Promise<{
+    processed: number;
+    failed: number;
+  }> {
+    if (maxFiles <= 0) {
+      return { processed: 0, failed: 0 };
+    }
+
+    const cap = Math.min(Math.max(maxFiles * 4, 5_000), 50_000);
+    const rows = this.db.listFiles(cap);
+    let processed = 0;
+    let failed = 0;
+    let tried = 0;
+
+    for (const file of rows) {
+      if (tried >= maxFiles) {
+        break;
+      }
+      if (file.type !== "file") {
+        continue;
+      }
+      if (filters.pathPrefix && !file.path.startsWith(filters.pathPrefix)) {
+        continue;
+      }
+
+      tried += 1;
+      try {
+        await this.indexFileEmbedding(file.id);
+        processed += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return { processed, failed };
   }
 
   removeFileEmbedding(fileId: string): void {
@@ -80,7 +181,7 @@ export class SearchService {
       results.push({
         ...candidate,
         score,
-        rationale: "Semantic vector similarity over file path signal.",
+        rationale: `Semantic vector similarity (${this.embedder.modelLabel()}).`,
       });
     }
 

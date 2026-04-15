@@ -2,18 +2,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SharedDb } from "@system-lens/shared-db";
+import type { IndexerOptions, IndexerStatus } from "./types.js";
 
-export interface IndexerOptions {
-  ignorePatterns?: RegExp[];
-  maxDepth?: number;
-}
-
-export interface IndexerStatus {
-  running: boolean;
-  scannedFiles: number;
-  scannedDirs: number;
-  lastRunAt: string | null;
-}
+export * from "./types.js";
 
 export class IndexerService {
   private readonly db: SharedDb;
@@ -78,8 +69,14 @@ export class IndexerService {
       return;
     }
 
-    const stats = await fs.lstat(currentPath).catch(() => null);
-    if (!stats) {
+    let stats: Awaited<ReturnType<typeof fs.lstat>>;
+    try {
+      stats = await fs.lstat(currentPath);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        this.db.tombstonePathAndDescendants(currentPath);
+      }
       return;
     }
 
@@ -96,7 +93,13 @@ export class IndexerService {
         sizeBytes: stats.size,
       });
 
-      const entries = await fs.readdir(currentPath).catch(() => [] as string[]);
+      const entries = await fs.readdir(currentPath).catch((readErr: unknown) => {
+        const code = (readErr as NodeJS.ErrnoException).code;
+        if (code === "ENOENT") {
+          this.db.tombstonePathAndDescendants(currentPath);
+        }
+        return [] as string[];
+      });
       for (const entry of entries) {
         await this.indexPath(path.join(currentPath, entry), options, depth + 1);
       }
@@ -156,3 +159,5 @@ export class IndexerService {
 }
 
 export * from "./index-config.js";
+export * from "./index-state.js";
+export { startIndexWatchers } from "./index-watcher.js";

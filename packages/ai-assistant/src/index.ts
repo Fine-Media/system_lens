@@ -1,6 +1,8 @@
 import { SearchService } from "@system-lens/search";
 import { SharedDb } from "@system-lens/shared-db";
 import { InsightScope, SystemInsightsService } from "@system-lens/system-insights";
+import { buildContextFromSearchResults } from "./context-snippet.js";
+import { isOllamaChatAvailable, ollamaChatCompletion } from "./ollama-rag.js";
 
 export interface AssistantResponse {
   answer: string;
@@ -25,25 +27,79 @@ export class AIAssistantService {
   }
 
   async ask(question: string, scope: InsightScope = {}): Promise<AssistantResponse> {
-    const semanticResults = await this.search.queryHybrid(question, { pathPrefix: scope.pathPrefix }, 5);
+    const trimmed = question.trim();
     const storageSummary = this.insights.explainStorage(scope);
+    const searchQuery = trimmed.length > 0 ? trimmed : " ";
+    const semanticResults = await this.search.queryHybrid(searchQuery, { pathPrefix: scope.pathPrefix }, 10);
     const topPaths = semanticResults.map((result) => result.path);
+
+    const suggestedActions = semanticResults.slice(0, 3).map((result) => ({
+      title: `Review file: ${result.path}`,
+      rationale: `Matched your question with score ${result.score.toFixed(3)}.`,
+      targetFileIds: [result.id],
+    }));
+
+    if (!trimmed.length) {
+      return {
+        answer:
+          "Ask a specific question about your indexed files. When Ollama is configured (OLLAMA_HOST), answers use retrieved text snippets; otherwise you get a short summary from the local index only.",
+        confidence: 0.35,
+        citations: topPaths.slice(0, 5),
+        suggestedActions,
+      };
+    }
+
+    if (isOllamaChatAvailable()) {
+      try {
+        const snippets = await buildContextFromSearchResults(semanticResults, {
+          maxFiles: 6,
+          maxBytesPerFile: 16_384,
+          maxTotalChars: 32_000,
+        });
+        const pathsOnly = topPaths.slice(0, 12).join("\n");
+        const userBlock = snippets
+          ? `${snippets}\n\n---\n\nOther relevant paths (may be binary or unreadable):\n${pathsOnly}`
+          : `No readable text snippets were collected. Indexed paths (by relevance):\n${pathsOnly}\n\nAnswer using path names and scope only, or say you need text content indexed.`;
+
+        const answer = await ollamaChatCompletion([
+          {
+            role: "system",
+            content:
+              "You are System Lens, a local-first assistant. Use the provided file snippets and paths to answer. If the answer is not supported by the snippets, say so briefly. Do not invent file contents. Be concise.",
+          },
+          {
+            role: "user",
+            content: `${userBlock}\n\n---\n\nQuestion: ${trimmed}\n\nScope: ${storageSummary.totalFiles} indexed files, ${storageSummary.totalBytes} bytes under the current path prefix.`,
+          },
+        ]);
+
+        return {
+          answer,
+          confidence: semanticResults.length > 0 ? 0.86 : 0.52,
+          citations: topPaths.slice(0, 10),
+          suggestedActions,
+        };
+      } catch {
+        // fall through to offline template
+      }
+    }
+
+    const ollamaHint = isOllamaChatAvailable()
+      ? "The local model request failed; ensure Ollama is running and the chat model is pulled (OLLAMA_CHAT_MODEL)."
+      : "Set OLLAMA_HOST and pull a chat model to enable RAG answers from file snippets.";
 
     const answer = [
       `Based on your local index, I found ${semanticResults.length} relevant files.`,
       `You currently have ${storageSummary.totalFiles} indexed files totaling ${storageSummary.totalBytes} bytes in scope.`,
-      "I might be incomplete if indexing has not finished; verify with search results before taking action.",
+      ollamaHint,
+      "Verify search results before taking action.",
     ].join(" ");
 
     return {
       answer,
       confidence: semanticResults.length > 0 ? 0.72 : 0.41,
       citations: topPaths,
-      suggestedActions: semanticResults.slice(0, 2).map((result) => ({
-        title: `Review file: ${result.path}`,
-        rationale: `Matched your question with score ${result.score.toFixed(3)}.`,
-        targetFileIds: [result.id],
-      })),
+      suggestedActions,
     };
   }
 
