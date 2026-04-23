@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 .system-lens.sqlite
 .system-lens/
+.github/

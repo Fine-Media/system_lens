@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getLogger, initLogger, type LogLevel } from "@system-lens/logger";
 import { AIAssistantService } from "@system-lens/ai-assistant";
 import { AutomationService } from "@system-lens/automation";
 import {
@@ -26,9 +25,21 @@ import { SharedDb } from "@system-lens/shared-db";
 import { SystemInsightsService } from "@system-lens/system-insights";
 import { SearchController } from "./controllers/SearchController.js";
 
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+const LEVEL_RANK: Record<LogLevel, number> = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+};
+
 function resolveLogLevel(): LogLevel {
   const raw = process.env.LOG_LEVEL?.toLowerCase();
-  const allowed: LogLevel[] = ["debug", "info", "warn", "error", "fatal"];
+  if (raw === "fatal") {
+    return "error";
+  }
+  const allowed: LogLevel[] = ["debug", "info", "warn", "error"];
   if (raw && (allowed as string[]).includes(raw)) {
     return raw as LogLevel;
   }
@@ -37,14 +48,36 @@ function resolveLogLevel(): LogLevel {
 
 const LOG_LEVEL = resolveLogLevel();
 
-initLogger({
-  level: LOG_LEVEL,
-  json: true,
-  colorize: false,
-  defaultContext: { source: "desktop-server" },
-});
+function shouldEmit(level: LogLevel): boolean {
+  return LEVEL_RANK[level] >= LEVEL_RANK[LOG_LEVEL];
+}
 
-const log = getLogger();
+function logLine(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
+  if (!shouldEmit(level)) {
+    return;
+  }
+  const line = JSON.stringify({
+    level,
+    time: new Date().toISOString(),
+    msg,
+    ctx: { source: "desktop-server" },
+    ...(meta ? { meta } : {}),
+  });
+  if (level === "error") {
+    console.error(line);
+  } else if (level === "warn") {
+    console.warn(line);
+  } else {
+    console.log(line);
+  }
+}
+
+function createReqLogger(requestId: string) {
+  return {
+    info: (msg: string, m?: Record<string, unknown>) => logLine("info", msg, { requestId, ...m }),
+    error: (msg: string, m?: Record<string, unknown>) => logLine("error", msg, { requestId, ...m }),
+  };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,7 +110,7 @@ async function runFullIndex(): Promise<void> {
   const startedAt = Date.now();
   const cfg = indexConfig;
   const patterns = compileIgnorePatterns(cfg.ignorePatternSources);
-  log.info("index.seed.start", { roots: cfg.roots, maxDepth: cfg.maxDepth });
+  logLine("info", "index.seed.start", { roots: cfg.roots, maxDepth: cfg.maxDepth });
   await indexer.startIndexing(cfg.roots, {
     ignorePatterns: patterns,
     maxDepth: cfg.maxDepth,
@@ -90,16 +123,16 @@ async function runFullIndex(): Promise<void> {
     void searchService
       .warmEmbeddingsForRecentFiles(Math.floor(warmMax), { pathPrefix })
       .then((r) => {
-        log.info("search.embed.warm.done", r);
+        logLine("info", "search.embed.warm.done", { processed: r.processed, failed: r.failed });
       })
       .catch((err: unknown) => {
-        log.warn("search.embed.warm.failed", {
+        logLine("warn", "search.embed.warm.failed", {
           message: err instanceof Error ? err.message : String(err),
         });
       });
   }
 
-  log.info("index.seed.done", {
+  logLine("info", "index.seed.done", {
     durationMs: Date.now() - startedAt,
     findingCount: findings.length,
   });
@@ -192,14 +225,14 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
     await saveIndexConfig(workspaceRoot, next);
     indexConfig = next;
-    log.info("config.saved", {
+    logLine("info", "config.saved", {
       rootCount: next.roots.length,
       ignorePatternCount: next.ignorePatternSources.length,
       maxDepth: next.maxDepth,
     });
 
     void runFullIndex().catch((err: unknown) => {
-      log.error("index.rebuild.failed", {
+      logLine("error", "index.rebuild.failed", {
         message: err instanceof Error ? err.message : String(err),
       });
     });
@@ -210,7 +243,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
   if (url.pathname === "/api/index/rebuild" && req.method === "POST") {
     void runFullIndex().catch((err: unknown) => {
-      log.error("index.rebuild.failed", {
+      logLine("error", "index.rebuild.failed", {
         message: err instanceof Error ? err.message : String(err),
       });
     });
@@ -348,7 +381,7 @@ async function bootstrap(): Promise<void> {
   if (runFull) {
     await runFullIndex();
   } else {
-    log.info("index.seed.skip", {
+    logLine("info", "index.seed.skip", {
       reason:
         "A full index already completed on this machine. Use POST /api/index/rebuild or set INDEX_FORCE_FULL=1 to crawl again.",
     });
@@ -359,7 +392,7 @@ async function bootstrap(): Promise<void> {
     const requestId = crypto.randomUUID();
     const method = req.method ?? "UNKNOWN";
     const requestUrl = req.url ?? "/";
-    const reqLog = log.child({ requestId });
+    const reqLog = createReqLogger(requestId);
 
     res.on("finish", () => {
       reqLog.info("http.request", {
@@ -385,7 +418,7 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT ?? "3180");
   server.listen(port, () => {
-    log.info("server.started", {
+    logLine("info", "server.started", {
       app: "System Lens",
       port,
       url: `http://localhost:${port}`,
@@ -401,11 +434,11 @@ async function bootstrap(): Promise<void> {
         { ignorePatterns: patterns, maxDepth: indexConfig.maxDepth },
         {
           onError: (err) => {
-            log.warn("index.watch.error", { message: err.message });
+            logLine("warn", "index.watch.error", { message: err.message });
           },
         },
       );
-      log.info("index.watch.started", { roots: indexConfig.roots.length });
+      logLine("info", "index.watch.started", { roots: indexConfig.roots.length });
     }
   });
 
@@ -420,7 +453,7 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error: unknown) => {
-  getLogger().error("server.bootstrap.failed", {
+  logLine("error", "server.bootstrap.failed", {
     message: error instanceof Error ? error.message : "Unknown bootstrap error",
     stack: error instanceof Error ? error.stack : undefined,
   });

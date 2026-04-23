@@ -28,9 +28,6 @@
     },
     {
       "path": "../../packages/automation"
-    },
-    {
-      "path": "../../packages/logger"
     }
   ]
 }

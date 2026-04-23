@@ -87,6 +87,7 @@ npm --workspace @system-lens/desktop start
 
 | Variable | Purpose |
 |----------|---------|
+| `LOG_LEVEL` | Desktop server log verbosity: `debug`, `info`, `warn`, or `error` (default **info**). Logs are JSON lines on stdout/stderr. |
 | `PORT` | HTTP port (default **3180**). |
 | `OLLAMA_HOST` or `OLLAMA_BASE_URL` | Ollama base URL for embeddings and assistant chat. |
 | `OLLAMA_EMBED_MODEL` | Embedding model name (default `nomic-embed-text`). |
@@ -128,9 +129,17 @@ Safety is a product feature, not an afterthought:
 - M3: Assistant layer (folder summaries + contextual suggestions).
 - M4: Controlled automation (user-approved rules only).
 
+## Contributing
+
+We welcome issues and pull requests. Start with **[CONTRIBUTING.md](CONTRIBUTING.md)** for issue kinds, dev setup, and PR expectations. See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for how attribution works and how to join as a maintainer or community contributor. This project uses the **[Code of Conduct](CODE_OF_CONDUCT.md)**. Report security issues privately per **[SECURITY.md](SECURITY.md)**.
+
+When you open an issue, GitHub offers templates for **bugs**, **features**, **tasks/chores**, and **documentation**.
+
+**Ready-made backlog (copy into GitHub):** [docs/project/GITHUB_ISSUES_TO_CREATE.md](docs/project/GITHUB_ISSUES_TO_CREATE.md).
+
 ## Repository Shape
 
-- `apps/desktop`: Electron shell and user interaction flows.
+- `apps/desktop`: HTTP server and static UI (MVP; Electron shell planned).
 - `packages/indexer`: file crawling and incremental filesystem sync.
 - `packages/search`: embedding and semantic retrieval services.
 - `packages/system-insights`: non-destructive analyzers.

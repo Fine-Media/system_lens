@@ -46,7 +46,7 @@ Optional: [Ollama](https://ollama.com/) for embeddings and assistant features (s
 ## Project layout
 
 - `apps/desktop` — HTTP server and static UI (MVP shell).
-- `packages/*` — Shared libraries (indexer, search, shared-db, insights, assistant, safety, automation, logger).
+- `packages/*` — Shared libraries (indexer, search, shared-db, insights, assistant, safety, automation).
 
 Keep changes **focused** on the problem you are solving. Avoid drive-by refactors in unrelated files.
 

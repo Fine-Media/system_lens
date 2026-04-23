@@ -22,9 +22,6 @@
       ],
       "@system-lens/automation": [
         "packages/automation/src/index.ts"
-      ],
-      "@system-lens/logger": [
-        "packages/logger/src/index.ts"
       ]
     },
     "target": "ES2022",

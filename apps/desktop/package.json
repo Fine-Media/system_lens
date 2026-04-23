@@ -14,7 +14,6 @@
     "@system-lens/ai-assistant": "file:../../packages/ai-assistant",
     "@system-lens/automation": "file:../../packages/automation",
     "@system-lens/indexer": "file:../../packages/indexer",
-    "@system-lens/logger": "file:../../packages/logger",
     "@system-lens/safety": "file:../../packages/safety",
     "@system-lens/search": "file:../../packages/search",
     "@system-lens/shared-db": "file:../../packages/shared-db",
