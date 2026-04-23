@@ -1,6 +1,50 @@
+# Dependencies
 node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build outputs
 dist/
+build/
+coverage/
+.nyc_output/
 *.tsbuildinfo
-.system-lens.sqlite
-.system-lens/
+*.tgz
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local caches and temp files
+.cache/
+.eslintcache
+tmp/
+temp/
 .github/
+setup.ps1
+
+# Local runtime data
+.system-lens.sqlite
+.system-lens.sqlite-*
+.system-lens/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
