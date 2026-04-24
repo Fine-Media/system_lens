@@ -34,7 +34,6 @@ pnpm-debug.log*
 tmp/
 temp/
 .github/
-setup.ps1
 
 # Local runtime data
 .system-lens.sqlite
@@ -42,7 +41,6 @@ setup.ps1
 .system-lens/
 
 # Editor and OS files
-.vscode/
 .idea/
 .DS_Store
 Thumbs.db
