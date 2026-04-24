@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AIAssistantService } from "@system-lens/ai-assistant";
@@ -47,9 +48,37 @@ function resolveLogLevel(): LogLevel {
 }
 
 const LOG_LEVEL = resolveLogLevel();
+const MAX_JSON_BODY_BYTES = Number(process.env.MAX_JSON_BODY_BYTES ?? "1048576");
+const LOG_SLOW_REQUEST_MS = Number(process.env.LOG_SLOW_REQUEST_MS ?? "2000");
 
 function shouldEmit(level: LogLevel): boolean {
   return LEVEL_RANK[level] >= LEVEL_RANK[LOG_LEVEL];
+}
+
+function cleanMeta(meta: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!meta) {
+    return undefined;
+  }
+  const entries = Object.entries(meta).filter(([, value]) => value !== undefined);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function serializeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+  return { message: String(error) };
+}
+
+function asFinitePositiveInt(value: number, fallback: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
 }
 
 function logLine(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
@@ -61,7 +90,9 @@ function logLine(level: LogLevel, msg: string, meta?: Record<string, unknown>): 
     time: new Date().toISOString(),
     msg,
     ctx: { source: "desktop-server" },
-    ...(meta ? { meta } : {}),
+    pid: process.pid,
+    host: os.hostname(),
+    ...(cleanMeta(meta) ? { meta: cleanMeta(meta) } : {}),
   });
   if (level === "error") {
     console.error(line);
@@ -74,7 +105,9 @@ function logLine(level: LogLevel, msg: string, meta?: Record<string, unknown>): 
 
 function createReqLogger(requestId: string) {
   return {
+    debug: (msg: string, m?: Record<string, unknown>) => logLine("debug", msg, { requestId, ...m }),
     info: (msg: string, m?: Record<string, unknown>) => logLine("info", msg, { requestId, ...m }),
+    warn: (msg: string, m?: Record<string, unknown>) => logLine("warn", msg, { requestId, ...m }),
     error: (msg: string, m?: Record<string, unknown>) => logLine("error", msg, { requestId, ...m }),
   };
 }
@@ -159,16 +192,32 @@ function sendJson(res: http.ServerResponse, statusCode: number, payload: unknown
 }
 
 async function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  const maxBytes = asFinitePositiveInt(MAX_JSON_BODY_BYTES, 1024 * 1024);
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.from(chunk));
+    const part = Buffer.from(chunk);
+    totalBytes += part.length;
+    if (totalBytes > maxBytes) {
+      const err = new Error(`Request body exceeds MAX_JSON_BODY_BYTES (${maxBytes}).`) as Error & { statusCode?: number };
+      err.statusCode = 413;
+      throw err;
+    }
+    chunks.push(part);
   }
 
   if (chunks.length === 0) {
     return {};
   }
 
-  return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as Record<string, unknown>;
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as Record<string, unknown>;
+  } catch (error) {
+    const err = new Error("Invalid JSON body.") as Error & { statusCode?: number };
+    err.statusCode = 400;
+    (err as Error & { cause?: unknown }).cause = error;
+    throw err;
+  }
 }
 
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -375,6 +424,16 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 }
 
 async function bootstrap(): Promise<void> {
+  logLine("info", "server.bootstrap.start", {
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    cwd: process.cwd(),
+    workspaceRoot,
+    dbPath,
+    env: process.env.NODE_ENV ?? "development",
+  });
+
   await initIndexConfig();
 
   const runFull = await shouldRunStartupFullIndex(workspaceRoot);
@@ -392,27 +451,51 @@ async function bootstrap(): Promise<void> {
     const requestId = crypto.randomUUID();
     const method = req.method ?? "UNKNOWN";
     const requestUrl = req.url ?? "/";
+    const userAgent = req.headers["user-agent"] ?? undefined;
+    const forwarded = req.headers["x-forwarded-for"];
+    const remoteIp =
+      typeof forwarded === "string"
+        ? forwarded.split(",")[0]?.trim()
+        : req.socket.remoteAddress ?? undefined;
     const reqLog = createReqLogger(requestId);
+    reqLog.debug("http.request.start", {
+      method,
+      url: requestUrl,
+      remoteIp,
+      userAgent,
+    });
 
     res.on("finish", () => {
-      reqLog.info("http.request", {
+      const durationMs = Date.now() - startedAt;
+      const logMethod = durationMs >= asFinitePositiveInt(LOG_SLOW_REQUEST_MS, 2000) ? reqLog.warn : reqLog.info;
+      logMethod("http.request", {
         method,
         url: requestUrl,
         statusCode: res.statusCode,
-        durationMs: Date.now() - startedAt,
+        durationMs,
+        contentLength: res.getHeader("content-length"),
+        remoteIp,
+        userAgent,
       });
     });
 
     handleRequest(req, res).catch((error: unknown) => {
+      const statusCode =
+        typeof (error as { statusCode?: unknown }).statusCode === "number"
+          ? ((error as { statusCode: number }).statusCode ?? 500)
+          : 500;
       const message = error instanceof Error ? error.message : "Unexpected server error.";
-      reqLog.error("http.request.error", {
+      const logMethod = statusCode >= 500 ? reqLog.error : reqLog.warn;
+      logMethod("http.request.error", {
         method,
         url: requestUrl,
         durationMs: Date.now() - startedAt,
-        message,
-        stack: error instanceof Error ? error.stack : undefined,
+        statusCode,
+        remoteIp,
+        userAgent,
+        ...serializeError(error),
       });
-      sendJson(res, 500, { error: message });
+      sendJson(res, statusCode, { error: message });
     });
   });
 
@@ -423,7 +506,12 @@ async function bootstrap(): Promise<void> {
       port,
       url: `http://localhost:${port}`,
       logLevel: LOG_LEVEL,
+      maxJsonBodyBytes: asFinitePositiveInt(MAX_JSON_BODY_BYTES, 1024 * 1024),
+      slowRequestMs: asFinitePositiveInt(LOG_SLOW_REQUEST_MS, 2000),
       embedder: embeddingProvider.modelLabel(),
+      roots: indexConfig.roots.length,
+      maxDepth: indexConfig.maxDepth,
+      watchEnabled: process.env.INDEX_WATCH !== "0",
     });
 
     if (process.env.INDEX_WATCH !== "0") {
@@ -443,9 +531,13 @@ async function bootstrap(): Promise<void> {
   });
 
   const shutdown = (): void => {
+    logLine("info", "server.shutdown.start");
     stopIndexWatchers?.();
     stopIndexWatchers = null;
-    server.close(() => process.exit(0));
+    server.close(() => {
+      logLine("info", "server.shutdown.complete");
+      process.exit(0);
+    });
   };
 
   process.once("SIGINT", shutdown);
@@ -454,8 +546,7 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((error: unknown) => {
   logLine("error", "server.bootstrap.failed", {
-    message: error instanceof Error ? error.message : "Unknown bootstrap error",
-    stack: error instanceof Error ? error.stack : undefined,
+    ...serializeError(error),
   });
   process.exitCode = 1;
 });

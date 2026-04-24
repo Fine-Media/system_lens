@@ -64,6 +64,7 @@ We use the [pull request template](.github/pull_request_template.md) to keep rev
 - **TypeScript** with `strict` settings; match existing patterns in touched files.
 - **No secrets** in commits (API keys, personal paths, tokens).
 - Prefer **clear names** and **small functions** over clever one-liners.
+- Preserve structured JSON logging in server code. New logs should include useful context (`requestId`, timing, status, and safe metadata) and avoid sensitive payload dumps.
 
 ## Community
 

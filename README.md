@@ -88,6 +88,8 @@ npm --workspace @system-lens/desktop start
 | Variable | Purpose |
 |----------|---------|
 | `LOG_LEVEL` | Desktop server log verbosity: `debug`, `info`, `warn`, or `error` (default **info**). Logs are JSON lines on stdout/stderr. |
+| `LOG_SLOW_REQUEST_MS` | Requests slower than this threshold are logged at `warn` (default **2000** ms). |
+| `MAX_JSON_BODY_BYTES` | Max JSON request body size in bytes before returning HTTP `413` (default **1048576**). |
 | `PORT` | HTTP port (default **3180**). |
 | `OLLAMA_HOST` or `OLLAMA_BASE_URL` | Ollama base URL for embeddings and assistant chat. |
 | `OLLAMA_EMBED_MODEL` | Embedding model name (default `nomic-embed-text`). |

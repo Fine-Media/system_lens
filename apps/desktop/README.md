@@ -28,3 +28,10 @@ Electron-based UI and interaction layer for System Lens.
 1. Show scope before action (`N files`, `estimated impact`, `paths`).
 2. Require one-click explicit approval for each action batch.
 3. Preserve undo or mitigation guidance if rollback is unsupported.
+
+## Logging
+
+- Desktop server logs are structured JSON lines (stdout/stderr).
+- Configure `LOG_LEVEL` (`debug`, `info`, `warn`, `error`) to control verbosity.
+- Configure `LOG_SLOW_REQUEST_MS` to elevate slow HTTP requests to warning logs.
+- Configure `MAX_JSON_BODY_BYTES` to guard API payload size (returns `413` on overflow).

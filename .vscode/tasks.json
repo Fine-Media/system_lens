@@ -14,9 +14,10 @@
         "cwd": "${workspaceFolder}"
       },
       "presentation": {
-        "reveal": "always",
+        "reveal": "never",
         "panel": "new",
-        "focus": true
+        "focus": false,
+        "close": true
       },
       "runOptions": {
         "runOn": "folderOpen"
