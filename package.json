@@ -1,19 +1,9 @@
 {
-  "name": "system-lens",
-  "version": "0.1.0",
-  "private": true,
-  "description": "System Lens monorepo",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "build": "tsc -b tsconfig.json",
-    "typecheck": "tsc -b tsconfig.json --pretty false",
-    "lint": "npm run lint -ws --if-present"
+    "test": "node --test --enable-source-maps"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
-    "typescript": "^5.8.3"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }
