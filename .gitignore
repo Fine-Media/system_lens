@@ -24,8 +24,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment files
-.env
-.env.*
 !.env.example
 
 # Local caches and temp files
@@ -45,3 +43,4 @@ temp/
 Thumbs.db
 *.swp
 *.swo
+config.bat
