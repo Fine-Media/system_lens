@@ -1,7 +1,7 @@
-import path from "node:path";
-import { InsightFinding, SharedDb } from "@system-lens/shared-db";
+import path from 'node:path';
+import { InsightFinding, SharedDb } from '@system-lens/shared-db';
 
-export type DetectorName = "duplicates" | "stale" | "storage-hogs";
+export type DetectorName = 'duplicates' | 'stale' | 'storage-hogs';
 
 export interface InsightScope {
   pathPrefix?: string;
@@ -29,27 +29,29 @@ export class SystemInsightsService {
 
   runDetectors(
     scope: InsightScope = {},
-    detectorSet: DetectorName[] = ["duplicates", "stale", "storage-hogs"],
+    detectorSet: DetectorName[] = ['duplicates', 'stale', 'storage-hogs'],
     config: DetectorConfig = {},
   ): InsightFinding[] {
     const findings: InsightFinding[] = [];
 
-    if (detectorSet.includes("duplicates")) {
+    if (detectorSet.includes('duplicates')) {
       findings.push(...this.detectDuplicates(scope));
     }
 
-    if (detectorSet.includes("stale")) {
+    if (detectorSet.includes('stale')) {
       findings.push(...this.detectStaleFiles(scope, config.staleDays ?? 120));
     }
 
-    if (detectorSet.includes("storage-hogs")) {
+    if (detectorSet.includes('storage-hogs')) {
       findings.push(...this.detectStorageHogs(scope, config.largeFileBytes ?? 100 * 1024 * 1024));
     }
 
     return findings;
   }
 
-  getFindings(filters: { detector?: DetectorName; status?: "open" | "dismissed" } = {}): InsightFinding[] {
+  getFindings(
+    filters: { detector?: DetectorName; status?: 'open' | 'dismissed' } = {},
+  ): InsightFinding[] {
     const rows = this.db.listInsightFindings(filters.status);
     if (!filters.detector) {
       return rows;
@@ -68,12 +70,14 @@ export class SystemInsightsService {
     topExtensions: Array<{ ext: string; bytes: number; count: number }>;
     topDirectories: Array<{ directory: string; bytes: number; count: number }>;
   } {
-    const files = this.db.listFiles(20_000).filter((file) => file.type === "file" && inScope(file.path, scope));
+    const files = this.db
+      .listFiles(20_000)
+      .filter((file) => file.type === 'file' && inScope(file.path, scope));
     const extMap = new Map<string, { bytes: number; count: number }>();
     const dirMap = new Map<string, { bytes: number; count: number }>();
 
     for (const file of files) {
-      const ext = file.ext || "(none)";
+      const ext = file.ext || '(none)';
       const directory = path.dirname(file.path);
       const extStats = extMap.get(ext) ?? { bytes: 0, count: 0 };
       extStats.bytes += file.sizeBytes;
@@ -105,11 +109,13 @@ export class SystemInsightsService {
   }
 
   private detectDuplicates(scope: InsightScope): InsightFinding[] {
-    const files = this.db.listFiles(20_000).filter((file) => file.type === "file" && inScope(file.path, scope));
+    const files = this.db
+      .listFiles(20_000)
+      .filter((file) => file.type === 'file' && inScope(file.path, scope));
     const groups = new Map<string, typeof files>();
 
     for (const file of files) {
-      const key = `${file.hashHint ?? "none"}:${file.sizeBytes}`;
+      const key = `${file.hashHint ?? 'none'}:${file.sizeBytes}`;
       const existing = groups.get(key) ?? [];
       existing.push(file);
       groups.set(key, existing);
@@ -117,7 +123,7 @@ export class SystemInsightsService {
 
     const findings: InsightFinding[] = [];
     for (const [groupKey, groupFiles] of groups.entries()) {
-      if (groupFiles.length < 2 || groupKey.startsWith("none:")) {
+      if (groupFiles.length < 2 || groupKey.startsWith('none:')) {
         continue;
       }
 
@@ -125,13 +131,17 @@ export class SystemInsightsService {
         groupKey,
         duplicateCount: groupFiles.length,
         totalBytes: groupFiles.reduce((sum, file) => sum + file.sizeBytes, 0),
-        files: groupFiles.map((file) => ({ id: file.id, path: file.path, sizeBytes: file.sizeBytes })),
+        files: groupFiles.map((file) => ({
+          id: file.id,
+          path: file.path,
+          sizeBytes: file.sizeBytes,
+        })),
       });
 
       findings.push(
         this.db.upsertInsightFinding({
-          detector: "duplicates",
-          severity: groupFiles.length > 4 ? "high" : "medium",
+          detector: 'duplicates',
+          severity: groupFiles.length > 4 ? 'high' : 'medium',
           payloadJson: payload,
         }),
       );
@@ -141,7 +151,9 @@ export class SystemInsightsService {
   }
 
   private detectStaleFiles(scope: InsightScope, staleDays: number): InsightFinding[] {
-    const files = this.db.listFiles(20_000).filter((file) => file.type === "file" && inScope(file.path, scope));
+    const files = this.db
+      .listFiles(20_000)
+      .filter((file) => file.type === 'file' && inScope(file.path, scope));
     const staleThreshold = Date.now() - staleDays * 24 * 60 * 60 * 1000;
     const staleFiles = files
       .filter((file) => Date.parse(file.updatedAt) < staleThreshold)
@@ -165,15 +177,17 @@ export class SystemInsightsService {
 
     return [
       this.db.upsertInsightFinding({
-        detector: "stale",
-        severity: staleFiles.length > 100 ? "high" : "medium",
+        detector: 'stale',
+        severity: staleFiles.length > 100 ? 'high' : 'medium',
         payloadJson: payload,
       }),
     ];
   }
 
   private detectStorageHogs(scope: InsightScope, largeFileBytes: number): InsightFinding[] {
-    const files = this.db.listFiles(20_000).filter((file) => file.type === "file" && inScope(file.path, scope));
+    const files = this.db
+      .listFiles(20_000)
+      .filter((file) => file.type === 'file' && inScope(file.path, scope));
     const largeFiles = files
       .filter((file) => file.sizeBytes >= largeFileBytes)
       .sort((a, b) => b.sizeBytes - a.sizeBytes)
@@ -195,8 +209,8 @@ export class SystemInsightsService {
 
     return [
       this.db.upsertInsightFinding({
-        detector: "storage-hogs",
-        severity: "medium",
+        detector: 'storage-hogs',
+        severity: 'medium',
         payloadJson: payload,
       }),
     ];

@@ -1,10 +1,10 @@
-import { ActionIntent, SafetyService } from "@system-lens/safety";
-import { AutomationRule, AutomationRun, SharedDb } from "@system-lens/shared-db";
+import { ActionIntent, SafetyService } from '@system-lens/safety';
+import { AutomationRule, AutomationRun, SharedDb } from '@system-lens/shared-db';
 
 export interface RuleDraft {
   name: string;
   scopePathPrefix: string;
-  mode: "sort-by-extension" | "archive-stale";
+  mode: 'sort-by-extension' | 'archive-stale';
   staleDays?: number;
 }
 
@@ -21,8 +21,8 @@ export class AutomationService {
     return this.db.createAutomationRule({
       name: ruleDraft.name,
       enabled: false,
-      status: "draft",
-      scheduleJson: JSON.stringify({ type: "manual" }),
+      status: 'draft',
+      scheduleJson: JSON.stringify({ type: 'manual' }),
       policyJson: JSON.stringify(ruleDraft),
     });
   }
@@ -32,54 +32,66 @@ export class AutomationService {
     const draft = JSON.parse(rule.policyJson) as RuleDraft;
     const candidateFiles = this.db
       .listFiles(20_000)
-      .filter((file) => file.type === "file" && file.path.startsWith(draft.scopePathPrefix))
+      .filter((file) => file.type === 'file' && file.path.startsWith(draft.scopePathPrefix))
       .slice(0, scope.limit ?? 25);
 
-    const intents = this.buildIntentsFromDraft(draft, candidateFiles.map((file) => file.id));
+    const intents = this.buildIntentsFromDraft(
+      draft,
+      candidateFiles.map((file) => file.id),
+    );
     const previews = intents.map((intent) => this.safety.preview(intent));
 
     return this.db.insertAutomationRun({
       ruleId,
       previewJson: JSON.stringify(previews),
       resultJson: JSON.stringify({ simulated: true, actionsPlanned: intents.length }),
-      status: "simulated",
+      status: 'simulated',
     });
   }
 
   activateRule(ruleId: string): void {
-    this.db.updateAutomationRuleState(ruleId, { enabled: true, status: "active" });
+    this.db.updateAutomationRuleState(ruleId, { enabled: true, status: 'active' });
   }
 
   deactivateRule(ruleId: string): void {
-    this.db.updateAutomationRuleState(ruleId, { enabled: false, status: "inactive" });
+    this.db.updateAutomationRuleState(ruleId, { enabled: false, status: 'inactive' });
   }
 
   executeRule(ruleId: string, context: { actor?: string } = {}): AutomationRun {
     const rule = this.mustGetRule(ruleId);
-    if (!rule.enabled || rule.status !== "active") {
+    if (!rule.enabled || rule.status !== 'active') {
       return this.db.insertAutomationRun({
         ruleId,
         previewJson: JSON.stringify({ ruleEnabled: rule.enabled, status: rule.status }),
-        resultJson: JSON.stringify({ executed: false, reason: "Rule is not active." }),
-        status: "blocked",
+        resultJson: JSON.stringify({ executed: false, reason: 'Rule is not active.' }),
+        status: 'blocked',
       });
     }
 
     const draft = JSON.parse(rule.policyJson) as RuleDraft;
     const candidateFiles = this.db
       .listFiles(20_000)
-      .filter((file) => file.type === "file" && file.path.startsWith(draft.scopePathPrefix))
+      .filter((file) => file.type === 'file' && file.path.startsWith(draft.scopePathPrefix))
       .slice(0, 25);
-    const intents = this.buildIntentsFromDraft(draft, candidateFiles.map((file) => file.id));
+    const intents = this.buildIntentsFromDraft(
+      draft,
+      candidateFiles.map((file) => file.id),
+    );
 
     const actionLogs = intents.map((intent) => {
-      const validation = this.safety.validatePolicy(intent, { allowDelete: false, maxFilesPerAction: 25 });
+      const validation = this.safety.validatePolicy(intent, {
+        allowDelete: false,
+        maxFilesPerAction: 25,
+      });
       if (!validation.allowed) {
         return { blocked: true, reasons: validation.reasons };
       }
 
       const preview = this.safety.preview(intent);
-      const token = this.safety.requestConfirmation(preview, context.actor ?? "automation").confirmationToken;
+      const token = this.safety.requestConfirmation(
+        preview,
+        context.actor ?? 'automation',
+      ).confirmationToken;
       const result = this.safety.executeConfirmed(token);
       return { blocked: false, actionLogId: result.id };
     });
@@ -88,7 +100,7 @@ export class AutomationService {
       ruleId,
       previewJson: JSON.stringify({ intents }),
       resultJson: JSON.stringify({ actionLogs }),
-      status: "success",
+      status: 'success',
     });
   }
 
@@ -110,10 +122,10 @@ export class AutomationService {
   }
 
   private buildIntentsFromDraft(draft: RuleDraft, targetFileIds: string[]): ActionIntent[] {
-    if (draft.mode === "sort-by-extension") {
+    if (draft.mode === 'sort-by-extension') {
       return [
         {
-          actionType: "move",
+          actionType: 'move',
           targetFileIds,
           destinationPath: `${draft.scopePathPrefix}/_sorted`,
         },
@@ -122,7 +134,7 @@ export class AutomationService {
 
     return [
       {
-        actionType: "archive",
+        actionType: 'archive',
         targetFileIds,
         destinationPath: `${draft.scopePathPrefix}/_archive`,
       },

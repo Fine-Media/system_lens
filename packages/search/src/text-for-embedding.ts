@@ -1,73 +1,73 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import type { FileRecord } from "@system-lens/shared-db";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import type { FileRecord } from '@system-lens/shared-db';
 
 const TEXT_EXTENSIONS = new Set([
-  ".txt",
-  ".md",
-  ".markdown",
-  ".ts",
-  ".tsx",
-  ".mts",
-  ".cts",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".json",
-  ".jsonc",
-  ".css",
-  ".scss",
-  ".html",
-  ".htm",
-  ".vue",
-  ".svelte",
-  ".xml",
-  ".svg",
-  ".yaml",
-  ".yml",
-  ".toml",
-  ".ini",
-  ".cfg",
-  ".conf",
-  ".properties",
-  ".rs",
-  ".py",
-  ".go",
-  ".java",
-  ".kt",
-  ".cs",
-  ".swift",
-  ".rb",
-  ".php",
-  ".sql",
-  ".sh",
-  ".bash",
-  ".zsh",
-  ".ps1",
-  ".bat",
-  ".cmd",
-  ".env",
-  ".editorconfig",
-  ".gitattributes",
-  ".gitignore",
-  ".dockerignore",
+  '.txt',
+  '.md',
+  '.markdown',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.jsonc',
+  '.css',
+  '.scss',
+  '.html',
+  '.htm',
+  '.vue',
+  '.svelte',
+  '.xml',
+  '.svg',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.cfg',
+  '.conf',
+  '.properties',
+  '.rs',
+  '.py',
+  '.go',
+  '.java',
+  '.kt',
+  '.cs',
+  '.swift',
+  '.rb',
+  '.php',
+  '.sql',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.ps1',
+  '.bat',
+  '.cmd',
+  '.env',
+  '.editorconfig',
+  '.gitattributes',
+  '.gitignore',
+  '.dockerignore',
 ]);
 
 export function isProbablyTextualFile(filePath: string): boolean {
   const base = path.basename(filePath).toLowerCase();
 
-  if (["dockerfile", "makefile", "jenkinsfile", "rakefile", "gemfile"].includes(base)) {
+  if (['dockerfile', 'makefile', 'jenkinsfile', 'rakefile', 'gemfile'].includes(base)) {
     return true;
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  if (ext === "" && (base.startsWith(".env") || base === ".npmrc" || base === ".nvmrc")) {
+  if (ext === '' && (base.startsWith('.env') || base === '.npmrc' || base === '.nvmrc')) {
     return true;
   }
 
   const nameNoExt = ext ? base.slice(0, base.length - ext.length) : base;
-  if (["readme", "license", "copying", "changelog", "contributing"].includes(nameNoExt)) {
+  if (['readme', 'license', 'copying', 'changelog', 'contributing'].includes(nameNoExt)) {
     return true;
   }
 
@@ -76,7 +76,7 @@ export function isProbablyTextualFile(filePath: string): boolean {
 
 async function readUtf8Prefix(filePath: string, maxBytes: number): Promise<string | null> {
   try {
-    const fh = await fs.open(filePath, "r");
+    const fh = await fs.open(filePath, 'r');
     try {
       const buf = Buffer.allocUnsafe(Math.min(maxBytes, 512 * 1024));
       const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
@@ -84,7 +84,7 @@ async function readUtf8Prefix(filePath: string, maxBytes: number): Promise<strin
       if (slice.includes(0)) {
         return null;
       }
-      return slice.toString("utf8");
+      return slice.toString('utf8');
     } finally {
       await fh.close();
     }
@@ -95,7 +95,7 @@ async function readUtf8Prefix(filePath: string, maxBytes: number): Promise<strin
 
 function maxCharsForEmbedding(): number {
   const raw = process.env.SEARCH_EMBED_MAX_CHARS;
-  if (raw === undefined || raw === "") {
+  if (raw === undefined || raw === '') {
     return 32_000;
   }
   const n = Number(raw);
@@ -109,7 +109,7 @@ function maxCharsForEmbedding(): number {
  * Text passed to the embedding model: path + optional UTF-8 prefix of file contents for textual files.
  */
 export async function buildEmbeddingInput(file: FileRecord): Promise<string> {
-  if (file.type !== "file") {
+  if (file.type !== 'file') {
     return file.path;
   }
 

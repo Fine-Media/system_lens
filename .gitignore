@@ -33,7 +33,6 @@ pnpm-debug.log*
 .eslintcache
 tmp/
 temp/
-.github/
 
 # Local runtime data
 .system-lens.sqlite

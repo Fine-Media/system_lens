@@ -1,17 +1,17 @@
-import crypto from "node:crypto";
-import pathModule from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import crypto from 'node:crypto';
+import pathModule from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
-export type FileStatus = "active" | "deleted";
-export type FindingStatus = "open" | "dismissed";
-export type ActionStatus = "previewed" | "executed" | "blocked" | "rolled_back";
-export type RuleStatus = "draft" | "active" | "inactive";
-export type RunStatus = "simulated" | "success" | "failed" | "blocked";
+export type FileStatus = 'active' | 'deleted';
+export type FindingStatus = 'open' | 'dismissed';
+export type ActionStatus = 'previewed' | 'executed' | 'blocked' | 'rolled_back';
+export type RuleStatus = 'draft' | 'active' | 'inactive';
+export type RunStatus = 'simulated' | 'success' | 'failed' | 'blocked';
 
 export interface FileRecord {
   id: string;
   path: string;
-  type: "file" | "directory" | "symlink";
+  type: 'file' | 'directory' | 'symlink';
   ext: string;
   createdAt: string;
   updatedAt: string;
@@ -44,7 +44,7 @@ export interface QueryFileResult extends FileRecord {
 export interface InsightFinding {
   id: string;
   detector: string;
-  severity: "low" | "medium" | "high";
+  severity: 'low' | 'medium' | 'high';
   payloadJson: string;
   createdAt: string;
   status: FindingStatus;
@@ -166,26 +166,26 @@ function nowIso(): string {
 }
 
 function fileIdFromPath(path: string): string {
-  return crypto.createHash("sha1").update(path).digest("hex");
+  return crypto.createHash('sha1').update(path).digest('hex');
 }
 
 function normalizeExt(path: string): string {
-  const extIndex = path.lastIndexOf(".");
+  const extIndex = path.lastIndexOf('.');
   if (extIndex === -1) {
-    return "";
+    return '';
   }
 
   return path.slice(extIndex).toLowerCase();
 }
 
 function stableId(prefix: string, content: string): string {
-  return crypto.createHash("sha1").update(`${prefix}:${content}`).digest("hex");
+  return crypto.createHash('sha1').update(`${prefix}:${content}`).digest('hex');
 }
 
 export class SharedDb {
   private readonly db: DatabaseSync;
 
-  constructor(databasePath = ":memory:") {
+  constructor(databasePath = ':memory:') {
     this.db = new DatabaseSync(databasePath);
     this.db.exec(INITIAL_SCHEMA_SQL);
   }
@@ -196,7 +196,7 @@ export class SharedDb {
 
   upsertFile(input: {
     path: string;
-    type: FileRecord["type"];
+    type: FileRecord['type'];
     createdAt?: string;
     updatedAt: string;
     sizeBytes: number;
@@ -205,7 +205,7 @@ export class SharedDb {
   }): FileRecord {
     const id = fileIdFromPath(input.path);
     const createdAt = input.createdAt ?? input.updatedAt;
-    const status = input.status ?? "active";
+    const status = input.status ?? 'active';
     const ext = normalizeExt(input.path);
 
     this.db
@@ -252,7 +252,7 @@ export class SharedDb {
       | {
           id: string;
           path: string;
-          type: FileRecord["type"];
+          type: FileRecord['type'];
           ext: string;
           created_at: string;
           updated_at: string;
@@ -263,7 +263,7 @@ export class SharedDb {
       | undefined;
 
     if (!row) {
-      throw new Error("File upsert failed unexpectedly.");
+      throw new Error('File upsert failed unexpectedly.');
     }
 
     return {
@@ -290,7 +290,7 @@ export class SharedDb {
       | {
           id: string;
           path: string;
-          type: FileRecord["type"];
+          type: FileRecord['type'];
           ext: string;
           created_at: string;
           updated_at: string;
@@ -319,7 +319,9 @@ export class SharedDb {
 
   markFileDeleted(path: string): void {
     const id = fileIdFromPath(path);
-    this.db.prepare(`UPDATE files SET status = 'deleted', updated_at = ? WHERE id = ?`).run(nowIso(), id);
+    this.db
+      .prepare(`UPDATE files SET status = 'deleted', updated_at = ? WHERE id = ?`)
+      .run(nowIso(), id);
   }
 
   /**
@@ -328,11 +330,9 @@ export class SharedDb {
    */
   tombstonePathAndDescendants(targetPath: string): number {
     const norm = pathModule.normalize(targetPath);
-    const likePattern = norm + pathModule.sep + "%";
+    const likePattern = norm + pathModule.sep + '%';
     const rows = this.db
-      .prepare(
-        `SELECT id FROM files WHERE status = 'active' AND (path = ? OR path LIKE ?)`,
-      )
+      .prepare(`SELECT id FROM files WHERE status = 'active' AND (path = ? OR path LIKE ?)`)
       .all(norm, likePattern) as Array<{ id: string }>;
 
     if (rows.length === 0) {
@@ -354,7 +354,7 @@ export class SharedDb {
   }
 
   upsertEmbedding(fileId: string, model: string, vectorRef: string): EmbeddingRecord {
-    const id = stableId("embedding", `${fileId}:${model}`);
+    const id = stableId('embedding', `${fileId}:${model}`);
     const updatedAt = nowIso();
 
     this.db
@@ -371,7 +371,7 @@ export class SharedDb {
   }
 
   removeEmbedding(fileId: string): void {
-    this.db.prepare("DELETE FROM embeddings WHERE file_id = ?").run(fileId);
+    this.db.prepare('DELETE FROM embeddings WHERE file_id = ?').run(fileId);
   }
 
   listFiles(limit = 100): FileRecord[] {
@@ -386,7 +386,7 @@ export class SharedDb {
       .all(limit) as Array<{
       id: string;
       path: string;
-      type: FileRecord["type"];
+      type: FileRecord['type'];
       ext: string;
       created_at: string;
       updated_at: string;
@@ -422,11 +422,11 @@ export class SharedDb {
         }
       }
 
-      if (typeof filters.minSizeBytes === "number" && file.sizeBytes < filters.minSizeBytes) {
+      if (typeof filters.minSizeBytes === 'number' && file.sizeBytes < filters.minSizeBytes) {
         return false;
       }
 
-      if (typeof filters.maxSizeBytes === "number" && file.sizeBytes > filters.maxSizeBytes) {
+      if (typeof filters.maxSizeBytes === 'number' && file.sizeBytes > filters.maxSizeBytes) {
         return false;
       }
 
@@ -446,7 +446,8 @@ export class SharedDb {
         const pathLc = file.path.toLowerCase();
         const extLc = file.ext.toLowerCase();
         const exactBoost = normalizedText && pathLc.includes(normalizedText) ? 2 : 0;
-        const extBoost = normalizedText === extLc || normalizedText === extLc.replace(".", "") ? 1 : 0;
+        const extBoost =
+          normalizedText === extLc || normalizedText === extLc.replace('.', '') ? 1 : 0;
         const daysOld = Math.max(
           1,
           Math.floor((Date.now() - Date.parse(file.updatedAt)) / (1000 * 60 * 60 * 24)),
@@ -462,13 +463,13 @@ export class SharedDb {
 
   upsertInsightFinding(input: {
     detector: string;
-    severity: InsightFinding["severity"];
+    severity: InsightFinding['severity'];
     payloadJson: string;
     status?: FindingStatus;
   }): InsightFinding {
-    const id = stableId("finding", `${input.detector}:${input.payloadJson}`);
+    const id = stableId('finding', `${input.detector}:${input.payloadJson}`);
     const createdAt = nowIso();
-    const status = input.status ?? "open";
+    const status = input.status ?? 'open';
 
     this.db
       .prepare(
@@ -512,7 +513,7 @@ export class SharedDb {
     ) as Array<{
       id: string;
       detector: string;
-      severity: InsightFinding["severity"];
+      severity: InsightFinding['severity'];
       payload_json: string;
       created_at: string;
       status: FindingStatus;
@@ -612,14 +613,23 @@ export class SharedDb {
     const id = crypto.randomUUID();
     const timestamp = nowIso();
     const enabled = input.enabled ?? false;
-    const status = input.status ?? "draft";
+    const status = input.status ?? 'draft';
 
     this.db
       .prepare(
         `INSERT INTO automation_rules(id, name, enabled, schedule_json, policy_json, created_at, updated_at, status)
          VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, input.name, enabled ? 1 : 0, input.scheduleJson, input.policyJson, timestamp, timestamp, status);
+      .run(
+        id,
+        input.name,
+        enabled ? 1 : 0,
+        input.scheduleJson,
+        input.policyJson,
+        timestamp,
+        timestamp,
+        status,
+      );
 
     return {
       id,

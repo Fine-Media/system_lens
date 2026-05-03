@@ -1,5 +1,5 @@
-import { SearchService } from "@system-lens/search";
-import { SearchFilters } from "@system-lens/shared-db";
+import { SearchService } from '@system-lens/search';
+import { SearchFilters } from '@system-lens/shared-db';
 
 export class SearchController {
   private readonly searchService: SearchService;

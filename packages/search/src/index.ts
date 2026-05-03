@@ -1,6 +1,6 @@
-import crypto from "node:crypto";
-import { QueryFileResult, SearchFilters, SharedDb } from "@system-lens/shared-db";
-import { buildEmbeddingInput } from "./text-for-embedding.js";
+import crypto from 'node:crypto';
+import { QueryFileResult, SearchFilters, SharedDb } from '@system-lens/shared-db';
+import { buildEmbeddingInput } from './text-for-embedding.js';
 
 export interface SearchResult extends QueryFileResult {
   rationale: string;
@@ -14,11 +14,11 @@ export interface EmbeddingProvider {
 
 class DeterministicEmbeddingProvider implements EmbeddingProvider {
   modelLabel(): string {
-    return "deterministic-v1";
+    return 'deterministic-v1';
   }
 
   async embedText(text: string): Promise<number[]> {
-    const bytes = crypto.createHash("sha256").update(text).digest();
+    const bytes = crypto.createHash('sha256').update(text).digest();
     return Array.from({ length: 16 }, (_, index) => bytes[index] / 255);
   }
 }
@@ -38,22 +38,22 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embedText(text: string): Promise<number[]> {
-    const url = `${this.baseUrl.replace(/\/$/, "")}/api/embeddings`;
+    const url = `${this.baseUrl.replace(/\/$/, '')}/api/embeddings`;
     const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: this.model, prompt: text }),
     });
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
+      const detail = await response.text().catch(() => '');
       throw new Error(`Ollama embeddings failed (${response.status}): ${detail.slice(0, 200)}`);
     }
 
     const data = (await response.json()) as { embedding?: number[]; embeddings?: number[][] };
     const vector = data.embedding ?? data.embeddings?.[0];
     if (!vector?.length) {
-      throw new Error("Ollama embeddings response missing embedding vector.");
+      throw new Error('Ollama embeddings response missing embedding vector.');
     }
     return vector;
   }
@@ -63,11 +63,11 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
  * Prefer Ollama when `OLLAMA_HOST` or `OLLAMA_BASE_URL` is set; otherwise deterministic hashes.
  * Override model with `OLLAMA_EMBED_MODEL` (default `nomic-embed-text`).
  */
-export { buildEmbeddingInput, isProbablyTextualFile } from "./text-for-embedding.js";
+export { buildEmbeddingInput, isProbablyTextualFile } from './text-for-embedding.js';
 
 export function createEmbeddingProviderFromEnv(): EmbeddingProvider {
   const raw = process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL;
-  const model = (process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text").trim();
+  const model = (process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text').trim();
   if (raw?.trim()) {
     return new OllamaEmbeddingProvider(raw.trim(), model);
   }
@@ -120,7 +120,10 @@ export class SearchService {
    * Pre-compute embeddings for recently updated files (by DB order). Useful after a full index
    * when Ollama is available. Controlled by `SEARCH_WARM_EMBEDDINGS_MAX` from the desktop server.
    */
-  async warmEmbeddingsForRecentFiles(maxFiles: number, filters: SearchFilters = {}): Promise<{
+  async warmEmbeddingsForRecentFiles(
+    maxFiles: number,
+    filters: SearchFilters = {},
+  ): Promise<{
     processed: number;
     failed: number;
   }> {
@@ -138,7 +141,7 @@ export class SearchService {
       if (tried >= maxFiles) {
         break;
       }
-      if (file.type !== "file") {
+      if (file.type !== 'file') {
         continue;
       }
       if (filters.pathPrefix && !file.path.startsWith(filters.pathPrefix)) {
@@ -162,9 +165,13 @@ export class SearchService {
     this.db.removeEmbedding(fileId);
   }
 
-  async querySemantic(text: string, filters: SearchFilters = {}, limit = 20): Promise<SearchResult[]> {
+  async querySemantic(
+    text: string,
+    filters: SearchFilters = {},
+    limit = 20,
+  ): Promise<SearchResult[]> {
     const queryEmbedding = await this.embedder.embedText(text);
-    const candidates = this.db.queryFilesByText("", filters, 2_000);
+    const candidates = this.db.queryFilesByText('', filters, 2_000);
     const results: SearchResult[] = [];
 
     for (const candidate of candidates) {
@@ -188,7 +195,11 @@ export class SearchService {
     return results.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
-  async queryHybrid(text: string, filters: SearchFilters = {}, limit = 20): Promise<SearchResult[]> {
+  async queryHybrid(
+    text: string,
+    filters: SearchFilters = {},
+    limit = 20,
+  ): Promise<SearchResult[]> {
     const textResults = this.db.queryFilesByText(text, filters, 2_000);
     const semanticResults = await this.querySemantic(text, filters, 2_000);
     const semanticById = new Map(semanticResults.map((entry) => [entry.id, entry]));
@@ -203,8 +214,8 @@ export class SearchService {
         score,
         rationale:
           semanticResult !== undefined
-            ? "Hybrid score combines keyword match and semantic similarity."
-            : "Keyword score only because semantic vector was unavailable.",
+            ? 'Hybrid score combines keyword match and semantic similarity.'
+            : 'Keyword score only because semantic vector was unavailable.',
       };
     });
 
