@@ -28,7 +28,7 @@
       }
 
       body {
-        font-family: "Segoe UI", system-ui, sans-serif;
+        font-family: 'Segoe UI', system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
         display: flex;
@@ -83,7 +83,7 @@
         background: var(--tab-hover);
       }
 
-      .tab[aria-selected="true"] {
+      .tab[aria-selected='true'] {
         color: var(--accent);
         font-weight: 600;
         border-bottom-color: var(--accent);
@@ -135,8 +135,8 @@
         align-items: center;
       }
 
-      .row > input[type="text"],
-      .row > input:not([type="number"]) {
+      .row > input[type='text'],
+      .row > input:not([type='number']) {
         flex: 1;
         min-width: 120px;
       }
@@ -206,7 +206,7 @@
         border: 1px solid var(--border);
         background: var(--log-bg);
         color: #c8d4e8;
-        font-family: "Cascadia Code", "Consolas", "ui-monospace", monospace;
+        font-family: 'Cascadia Code', 'Consolas', 'ui-monospace', monospace;
         font-size: 13px;
         line-height: 1.55;
         overflow: auto;
@@ -225,26 +225,72 @@
       <h1>System Lens</h1>
       <p class="subtitle">Local search, insights, assistant, and safety (MVP)</p>
       <div class="tabs" role="tablist" aria-label="Main sections">
-        <button type="button" class="tab" role="tab" id="tab-btn-index" aria-selected="true" aria-controls="panel-index" data-tab="index">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          id="tab-btn-index"
+          aria-selected="true"
+          aria-controls="panel-index"
+          data-tab="index"
+        >
           Index
         </button>
-        <button type="button" class="tab" role="tab" id="tab-btn-search" aria-selected="false" aria-controls="panel-search" data-tab="search">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          id="tab-btn-search"
+          aria-selected="false"
+          aria-controls="panel-search"
+          data-tab="search"
+        >
           Search
         </button>
-        <button type="button" class="tab" role="tab" id="tab-btn-insights" aria-selected="false" aria-controls="panel-insights" data-tab="insights">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          id="tab-btn-insights"
+          aria-selected="false"
+          aria-controls="panel-insights"
+          data-tab="insights"
+        >
           Insights
         </button>
-        <button type="button" class="tab" role="tab" id="tab-btn-assistant" aria-selected="false" aria-controls="panel-assistant" data-tab="assistant">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          id="tab-btn-assistant"
+          aria-selected="false"
+          aria-controls="panel-assistant"
+          data-tab="assistant"
+        >
           Assistant
         </button>
-        <button type="button" class="tab" role="tab" id="tab-btn-automation" aria-selected="false" aria-controls="panel-automation" data-tab="automation">
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          id="tab-btn-automation"
+          aria-selected="false"
+          aria-controls="panel-automation"
+          data-tab="automation"
+        >
           Automation &amp; safety
         </button>
       </div>
     </header>
 
     <div class="shell">
-      <section id="panel-index" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-btn-index" data-panel="index">
+      <section
+        id="panel-index"
+        class="tab-panel is-active"
+        role="tabpanel"
+        aria-labelledby="tab-btn-index"
+        data-panel="index"
+      >
         <div class="panel-tools">
           <h2>Index roots</h2>
           <p class="meta" id="config-path"></p>
@@ -268,12 +314,24 @@
         </div>
       </section>
 
-      <section id="panel-search" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-search" hidden data-panel="search">
+      <section
+        id="panel-search"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-btn-search"
+        hidden
+        data-panel="search"
+      >
         <div class="panel-tools">
           <h2>Search</h2>
           <div class="row">
             <input id="search-query" type="text" placeholder="Search files..." />
-            <input id="search-ext" type="text" placeholder="ext (optional)" style="max-width: 140px" />
+            <input
+              id="search-ext"
+              type="text"
+              placeholder="ext (optional)"
+              style="max-width: 140px"
+            />
             <button id="search-run" type="button">Run</button>
           </div>
           <p id="search-meta" class="meta">Ready.</p>
@@ -284,7 +342,14 @@
         </div>
       </section>
 
-      <section id="panel-insights" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-insights" hidden data-panel="insights">
+      <section
+        id="panel-insights"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-btn-insights"
+        hidden
+        data-panel="insights"
+      >
         <div class="panel-tools">
           <h2>Insights</h2>
           <div class="row">
@@ -298,10 +363,21 @@
         </div>
       </section>
 
-      <section id="panel-assistant" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-assistant" hidden data-panel="assistant">
+      <section
+        id="panel-assistant"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-btn-assistant"
+        hidden
+        data-panel="assistant"
+      >
         <div class="panel-tools">
           <h2>Assistant</h2>
-          <textarea id="assistant-question" rows="4" placeholder="Ask about your files..."></textarea>
+          <textarea
+            id="assistant-question"
+            rows="4"
+            placeholder="Ask about your files..."
+          ></textarea>
           <div class="row">
             <button id="assistant-ask" type="button">Ask</button>
             <button id="assistant-explain" type="button">Explain computer</button>
@@ -313,11 +389,23 @@
         </div>
       </section>
 
-      <section id="panel-automation" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-automation" hidden data-panel="automation">
+      <section
+        id="panel-automation"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-btn-automation"
+        hidden
+        data-panel="automation"
+      >
         <div class="panel-tools">
           <h2>Automation &amp; safety</h2>
           <div class="row">
-            <input id="rule-name" type="text" value="Sort by extension in workspace" style="flex: 2" />
+            <input
+              id="rule-name"
+              type="text"
+              value="Sort by extension in workspace"
+              style="flex: 2"
+            />
           </div>
           <div class="row">
             <button id="rule-create" type="button">Create rule</button>
@@ -336,65 +424,67 @@
       const $ = (id) => document.getElementById(id);
       const stringify = (value) => JSON.stringify(value, null, 2);
 
-      const tabButtons = document.querySelectorAll(".tab[data-tab]");
-      const tabPanels = document.querySelectorAll(".tab-panel[data-panel]");
+      const tabButtons = document.querySelectorAll('.tab[data-tab]');
+      const tabPanels = document.querySelectorAll('.tab-panel[data-panel]');
 
       function activateTab(name) {
         tabButtons.forEach((btn) => {
           const on = btn.dataset.tab === name;
-          btn.setAttribute("aria-selected", on ? "true" : "false");
+          btn.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         tabPanels.forEach((panel) => {
           const on = panel.dataset.panel === name;
-          panel.classList.toggle("is-active", on);
+          panel.classList.toggle('is-active', on);
           panel.hidden = !on;
         });
       }
 
       tabButtons.forEach((btn) => {
-        btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+        btn.addEventListener('click', () => activateTab(btn.dataset.tab));
       });
 
       async function loadIndexConfig() {
-        const payload = await callJson("/api/config");
-        $("config-path").textContent = `Config file: ${payload.configFile}`;
-        $("config-roots").value = payload.roots.join("\n");
-        $("config-ignore").value = payload.ignorePatternSources.join("\n");
-        $("config-depth").value = String(payload.maxDepth);
-        $("config-output").textContent = stringify(payload);
+        const payload = await callJson('/api/config');
+        $('config-path').textContent = `Config file: ${payload.configFile}`;
+        $('config-roots').value = payload.roots.join('\n');
+        $('config-ignore').value = payload.ignorePatternSources.join('\n');
+        $('config-depth').value = String(payload.maxDepth);
+        $('config-output').textContent = stringify(payload);
       }
 
-      $("config-load").addEventListener("click", () => {
+      $('config-load').addEventListener('click', () => {
         loadIndexConfig().catch((e) => {
-          $("config-output").textContent = e.message;
+          $('config-output').textContent = e.message;
         });
       });
 
-      $("config-save").addEventListener("click", () => {
+      $('config-save').addEventListener('click', () => {
         (async () => {
-          const roots = $("config-roots").value.split(/\r?\n/).filter((line) => line.trim().length > 0);
-          const ignorePatternSources = $("config-ignore")
+          const roots = $('config-roots')
             .value.split(/\r?\n/)
             .filter((line) => line.trim().length > 0);
-          const maxDepth = Number($("config-depth").value);
-          const payload = await fetch("/api/config", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
+          const ignorePatternSources = $('config-ignore')
+            .value.split(/\r?\n/)
+            .filter((line) => line.trim().length > 0);
+          const maxDepth = Number($('config-depth').value);
+          const payload = await fetch('/api/config', {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ roots, ignorePatternSources, maxDepth }),
           });
           const data = await payload.json();
           if (!payload.ok) {
-            throw new Error(data.details ? data.details.join("; ") : data.error || "Save failed");
+            throw new Error(data.details ? data.details.join('; ') : data.error || 'Save failed');
           }
-          $("config-output").textContent = stringify(data);
+          $('config-output').textContent = stringify(data);
         })().catch((e) => {
-          $("config-output").textContent = e instanceof Error ? e.message : String(e);
+          $('config-output').textContent = e instanceof Error ? e.message : String(e);
         });
       });
 
-      $("config-rebuild").addEventListener("click", async () => {
-        const payload = await callJson("/api/index/rebuild", { method: "POST" });
-        $("config-output").textContent = stringify(payload);
+      $('config-rebuild').addEventListener('click', async () => {
+        const payload = await callJson('/api/index/rebuild', { method: 'POST' });
+        $('config-output').textContent = stringify(payload);
       });
 
       loadIndexConfig().catch(() => {});
@@ -408,61 +498,64 @@
         return payload;
       }
 
-      $("search-run").addEventListener("click", async () => {
+      $('search-run').addEventListener('click', async () => {
         const params = new URLSearchParams();
-        params.set("q", $("search-query").value || "");
-        if ($("search-ext").value) params.set("ext", $("search-ext").value);
+        params.set('q', $('search-query').value || '');
+        if ($('search-ext').value) params.set('ext', $('search-ext').value);
         const start = performance.now();
         const payload = await callJson(`/api/search?${params.toString()}`);
-        $("search-meta").textContent = `${payload.count} results in ${Math.round(performance.now() - start)}ms`;
-        $("search-output").textContent = stringify(payload.results.slice(0, 15));
+        $('search-meta').textContent =
+          `${payload.count} results in ${Math.round(performance.now() - start)}ms`;
+        $('search-output').textContent = stringify(payload.results.slice(0, 15));
       });
 
-      $("insights-run").addEventListener("click", async () => {
-        const payload = await callJson("/api/insights/run", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: "{}",
+      $('insights-run').addEventListener('click', async () => {
+        const payload = await callJson('/api/insights/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{}',
         });
-        $("insights-output").textContent = stringify(payload);
+        $('insights-output').textContent = stringify(payload);
       });
 
-      $("insights-list").addEventListener("click", async () => {
-        const payload = await callJson("/api/insights/findings?status=open");
-        $("insights-output").textContent = stringify(payload.findings.slice(0, 20));
+      $('insights-list').addEventListener('click', async () => {
+        const payload = await callJson('/api/insights/findings?status=open');
+        $('insights-output').textContent = stringify(payload.findings.slice(0, 20));
       });
 
-      $("assistant-ask").addEventListener("click", async () => {
-        const payload = await callJson("/api/assistant/ask", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ question: $("assistant-question").value || "What should I organize first?" }),
+      $('assistant-ask').addEventListener('click', async () => {
+        const payload = await callJson('/api/assistant/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            question: $('assistant-question').value || 'What should I organize first?',
+          }),
         });
-        $("assistant-output").textContent = stringify(payload);
+        $('assistant-output').textContent = stringify(payload);
       });
 
-      $("assistant-explain").addEventListener("click", async () => {
-        const payload = await callJson("/api/assistant/explain-computer");
-        $("assistant-output").textContent = stringify(payload);
+      $('assistant-explain').addEventListener('click', async () => {
+        const payload = await callJson('/api/assistant/explain-computer');
+        $('assistant-output').textContent = stringify(payload);
       });
 
-      $("rule-create").addEventListener("click", async () => {
-        const payload = await callJson("/api/automation/rules", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: $("rule-name").value, mode: "sort-by-extension" }),
+      $('rule-create').addEventListener('click', async () => {
+        const payload = await callJson('/api/automation/rules', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: $('rule-name').value, mode: 'sort-by-extension' }),
         });
-        $("automation-output").textContent = stringify(payload);
+        $('automation-output').textContent = stringify(payload);
       });
 
-      $("rule-list").addEventListener("click", async () => {
-        const payload = await callJson("/api/automation/rules");
-        $("automation-output").textContent = stringify(payload.rules);
+      $('rule-list').addEventListener('click', async () => {
+        const payload = await callJson('/api/automation/rules');
+        $('automation-output').textContent = stringify(payload.rules);
       });
 
-      $("safety-logs").addEventListener("click", async () => {
-        const payload = await callJson("/api/safety/logs");
-        $("automation-output").textContent = stringify(payload.logs.slice(0, 20));
+      $('safety-logs').addEventListener('click', async () => {
+        const payload = await callJson('/api/safety/logs');
+        $('automation-output').textContent = stringify(payload.logs.slice(0, 20));
       });
     </script>
   </body>

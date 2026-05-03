@@ -1,6 +1,6 @@
-import { constants as fsConstants } from "node:fs";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { constants as fsConstants } from 'node:fs';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 export const INDEX_CONFIG_VERSION = 1 as const;
 
@@ -11,7 +11,7 @@ export interface IndexRootsConfig {
   maxDepth: number;
 }
 
-const DEFAULT_IGNORE_SOURCES = ["node_modules", "[\\\\/]dist[\\\\/]", "[\\\\/]\\.git[\\\\/]"];
+const DEFAULT_IGNORE_SOURCES = ['node_modules', '[\\\\/]dist[\\\\/]', '[\\\\/]\\.git[\\\\/]'];
 
 export function createDefaultIndexConfig(workspaceRoot: string): IndexRootsConfig {
   return {
@@ -23,21 +23,23 @@ export function createDefaultIndexConfig(workspaceRoot: string): IndexRootsConfi
 }
 
 export function configDir(workspaceRoot: string): string {
-  return path.join(workspaceRoot, ".system-lens");
+  return path.join(workspaceRoot, '.system-lens');
 }
 
 export function indexConfigPath(workspaceRoot: string): string {
-  return path.join(configDir(workspaceRoot), "index-config.json");
+  return path.join(configDir(workspaceRoot), 'index-config.json');
 }
 
 export function compileIgnorePatterns(sources: string[]): RegExp[] {
   return sources
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
-    .map((s) => new RegExp(s, "i"));
+    .map((s) => new RegExp(s, 'i'));
 }
 
-export function validateIgnorePatternSources(sources: string[]): { ok: true; sources: string[] } | { ok: false; errors: string[] } {
+export function validateIgnorePatternSources(
+  sources: string[],
+): { ok: true; sources: string[] } | { ok: false; errors: string[] } {
   const errors: string[] = [];
   const out: string[] = [];
   for (let i = 0; i < sources.length; i += 1) {
@@ -46,7 +48,7 @@ export function validateIgnorePatternSources(sources: string[]): { ok: true; sou
       continue;
     }
     try {
-      new RegExp(s, "i");
+      new RegExp(s, 'i');
       out.push(s);
     } catch {
       errors.push(`Invalid regex at line ${i + 1}: ${s}`);
@@ -67,14 +69,14 @@ export async function validateRootsForIndexing(
   const seen = new Set<string>();
 
   if (roots.length === 0) {
-    return { ok: false, errors: ["At least one index root is required."] };
+    return { ok: false, errors: ['At least one index root is required.'] };
   }
   if (roots.length > 32) {
-    return { ok: false, errors: ["Too many roots (max 32)."] };
+    return { ok: false, errors: ['Too many roots (max 32).'] };
   }
 
   for (const raw of roots) {
-    const trimmed = typeof raw === "string" ? raw.trim() : "";
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
     if (!trimmed) {
       continue;
     }
@@ -104,7 +106,7 @@ export async function validateRootsForIndexing(
   }
 
   if (normalized.length === 0) {
-    return { ok: false, errors: errors.length > 0 ? errors : ["No valid directory roots."] };
+    return { ok: false, errors: errors.length > 0 ? errors : ['No valid directory roots.'] };
   }
 
   return { ok: true, normalized };
@@ -112,16 +114,18 @@ export async function validateRootsForIndexing(
 
 function normalizeLoadedConfig(parsed: unknown, workspaceRoot: string): IndexRootsConfig {
   const fallback = createDefaultIndexConfig(workspaceRoot);
-  if (!parsed || typeof parsed !== "object") {
+  if (!parsed || typeof parsed !== 'object') {
     return fallback;
   }
 
   const o = parsed as Record<string, unknown>;
-  const rootsRaw = Array.isArray(o.roots) ? o.roots.filter((x): x is string => typeof x === "string") : [];
+  const rootsRaw = Array.isArray(o.roots)
+    ? o.roots.filter((x): x is string => typeof x === 'string')
+    : [];
   const ignoreRaw = Array.isArray(o.ignorePatternSources)
-    ? o.ignorePatternSources.filter((x): x is string => typeof x === "string")
+    ? o.ignorePatternSources.filter((x): x is string => typeof x === 'string')
     : fallback.ignorePatternSources;
-  let maxDepth = typeof o.maxDepth === "number" ? o.maxDepth : fallback.maxDepth;
+  let maxDepth = typeof o.maxDepth === 'number' ? o.maxDepth : fallback.maxDepth;
   if (!Number.isFinite(maxDepth) || maxDepth < 0) {
     maxDepth = fallback.maxDepth;
   }
@@ -141,22 +145,25 @@ export async function loadOrCreateIndexConfig(workspaceRoot: string): Promise<In
   await fs.mkdir(dir, { recursive: true });
 
   try {
-    const raw = await fs.readFile(file, "utf-8");
+    const raw = await fs.readFile(file, 'utf-8');
     const parsed = JSON.parse(raw) as unknown;
     return normalizeLoadedConfig(parsed, workspaceRoot);
   } catch (error: unknown) {
     const err = error as NodeJS.ErrnoException;
-    if (err.code !== "ENOENT") {
+    if (err.code !== 'ENOENT') {
       throw error;
     }
     const cfg = createDefaultIndexConfig(workspaceRoot);
-    await fs.writeFile(file, JSON.stringify(cfg, null, 2), "utf-8");
+    await fs.writeFile(file, JSON.stringify(cfg, null, 2), 'utf-8');
     return cfg;
   }
 }
 
-export async function saveIndexConfig(workspaceRoot: string, config: IndexRootsConfig): Promise<void> {
+export async function saveIndexConfig(
+  workspaceRoot: string,
+  config: IndexRootsConfig,
+): Promise<void> {
   const file = indexConfigPath(workspaceRoot);
   await fs.mkdir(configDir(workspaceRoot), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(config, null, 2), "utf-8");
+  await fs.writeFile(file, JSON.stringify(config, null, 2), 'utf-8');
 }

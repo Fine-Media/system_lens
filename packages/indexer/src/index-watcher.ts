@@ -1,6 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-import type { IndexerOptions, IndexerRescan } from "./types.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import type { IndexerOptions, IndexerRescan } from './types.js';
 
 const DEBOUNCE_MS = 750;
 
@@ -39,7 +39,7 @@ export function startIndexWatchers(
 
     void (async () => {
       try {
-        if (paths.has(".")) {
+        if (paths.has('.')) {
           await indexer.rescanPath(root, options);
           return;
         }
@@ -58,7 +58,7 @@ export function startIndexWatchers(
     }
     const set = pending.get(root)!;
     if (relPath === null) {
-      set.add(".");
+      set.add('.');
     } else {
       set.add(relPath);
     }
@@ -89,9 +89,9 @@ export function startIndexWatchers(
           const rel =
             filename === null || filename === undefined
               ? null
-              : typeof filename === "string"
+              : typeof filename === 'string'
                 ? filename
-                : filename.toString("utf-8");
+                : filename.toString('utf-8');
           scheduleRescan(root, rel);
         },
       );

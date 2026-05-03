@@ -24,11 +24,11 @@ cd path/to/system_lens
 
 ### Steps
 
-| Step | Command |
-|------|---------|
-| **1. Install dependencies** | `npm install` |
-| **2. Build TypeScript** | `npm run build` |
-| **3. Start the server** | `npm --workspace @system-lens/desktop start` |
+| Step                        | Command                                      |
+| --------------------------- | -------------------------------------------- |
+| **1. Install dependencies** | `npm install`                                |
+| **2. Build TypeScript**     | `npm run build`                              |
+| **3. Start the server**     | `npm --workspace @system-lens/desktop start` |
 
 Leave the terminal running after step 3.
 
@@ -85,19 +85,19 @@ npm --workspace @system-lens/desktop start
 
 ### Optional environment variables
 
-| Variable | Purpose |
-|----------|---------|
-| `LOG_LEVEL` | Desktop server log verbosity: `debug`, `info`, `warn`, or `error` (default **info**). Logs are JSON lines on stdout/stderr. |
-| `LOG_SLOW_REQUEST_MS` | Requests slower than this threshold are logged at `warn` (default **2000** ms). |
-| `MAX_JSON_BODY_BYTES` | Max JSON request body size in bytes before returning HTTP `413` (default **1048576**). |
-| `PORT` | HTTP port (default **3180**). |
-| `OLLAMA_HOST` or `OLLAMA_BASE_URL` | Ollama base URL for embeddings and assistant chat. |
-| `OLLAMA_EMBED_MODEL` | Embedding model name (default `nomic-embed-text`). |
-| `OLLAMA_CHAT_MODEL` | Chat model name (default `llama3.2`). |
-| `INDEX_FORCE_FULL` | Set to `1` to run a full index on the next startup. |
-| `INDEX_FULL_ON_START` | Set to `1` to run a full index on **every** startup (heavy). |
-| `INDEX_WATCH` | Set to `0` to disable filesystem watchers. |
-| `SEARCH_WARM_EMBEDDINGS_MAX` | After a full index, pre-warm embeddings for up to this many files (async; `0` = off). |
+| Variable                           | Purpose                                                                                                                     |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `LOG_LEVEL`                        | Desktop server log verbosity: `debug`, `info`, `warn`, or `error` (default **info**). Logs are JSON lines on stdout/stderr. |
+| `LOG_SLOW_REQUEST_MS`              | Requests slower than this threshold are logged at `warn` (default **2000** ms).                                             |
+| `MAX_JSON_BODY_BYTES`              | Max JSON request body size in bytes before returning HTTP `413` (default **1048576**).                                      |
+| `PORT`                             | HTTP port (default **3180**).                                                                                               |
+| `OLLAMA_HOST` or `OLLAMA_BASE_URL` | Ollama base URL for embeddings and assistant chat.                                                                          |
+| `OLLAMA_EMBED_MODEL`               | Embedding model name (default `nomic-embed-text`).                                                                          |
+| `OLLAMA_CHAT_MODEL`                | Chat model name (default `llama3.2`).                                                                                       |
+| `INDEX_FORCE_FULL`                 | Set to `1` to run a full index on the next startup.                                                                         |
+| `INDEX_FULL_ON_START`              | Set to `1` to run a full index on **every** startup (heavy).                                                                |
+| `INDEX_WATCH`                      | Set to `0` to disable filesystem watchers.                                                                                  |
+| `SEARCH_WARM_EMBEDDINGS_MAX`       | After a full index, pre-warm embeddings for up to this many files (async; `0` = off).                                       |
 
 If the server fails with **address already in use** on port 3180, stop the other process using that port or set `PORT` to a free port.
 
@@ -130,6 +130,10 @@ Safety is a product feature, not an afterthought:
 - M2: Insights layer (duplicates, stale files, storage breakdown).
 - M3: Assistant layer (folder summaries + contextual suggestions).
 - M4: Controlled automation (user-approved rules only).
+
+## CI
+
+Every push to `main` and every pull request runs the **CI** workflow automatically. It installs dependencies (`npm ci`), builds (`npm run build`), and typechecks (`npm run typecheck`) across Node 20 and 22. A failing build **blocks** PR merges. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the full configuration and [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the same checks locally.
 
 ## Contributing
 

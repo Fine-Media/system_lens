@@ -10,9 +10,9 @@ GitHub shows **[code contributors](https://github.com/OWNER/REPO/graphs/contribu
 
 Fill in this table when you have a public maintainer list (edit via PR):
 
-| Name | GitHub | Role |
-|------|--------|------|
-| *Add maintainer* | [@username](https://github.com/username) | *Owner / Maintainer* |
+| Name             | GitHub                                   | Role                 |
+| ---------------- | ---------------------------------------- | -------------------- |
+| _Add maintainer_ | [@username](https://github.com/username) | _Owner / Maintainer_ |
 
 ## Community acknowledgments
 

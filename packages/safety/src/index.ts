@@ -1,7 +1,7 @@
-import crypto from "node:crypto";
-import { ActionLogEntry, SearchFilters, SharedDb } from "@system-lens/shared-db";
+import crypto from 'node:crypto';
+import { ActionLogEntry, SearchFilters, SharedDb } from '@system-lens/shared-db';
 
-export type MutatingActionType = "move" | "rename" | "archive" | "delete";
+export type MutatingActionType = 'move' | 'rename' | 'archive' | 'delete';
 
 export interface ActionIntent {
   actionType: MutatingActionType;
@@ -53,9 +53,9 @@ export class SafetyService {
       .filter((file): file is NonNullable<typeof file> => file !== null);
     const filePaths = files.map((file) => file.path);
     const previewHash = crypto
-      .createHash("sha1")
+      .createHash('sha1')
       .update(JSON.stringify({ actionIntent, filePaths }))
-      .digest("hex");
+      .digest('hex');
 
     return {
       actionType: actionIntent.actionType,
@@ -72,12 +72,12 @@ export class SafetyService {
       .map((fileId) => this.db.getFileById(fileId))
       .filter((file): file is NonNullable<typeof file> => file !== null);
 
-    if (actionIntent.actionType === "delete" && !userPolicy.allowDelete) {
-      reasons.push("Delete actions are disabled by current policy.");
+    if (actionIntent.actionType === 'delete' && !userPolicy.allowDelete) {
+      reasons.push('Delete actions are disabled by current policy.');
     }
 
     if (
-      typeof userPolicy.maxFilesPerAction === "number" &&
+      typeof userPolicy.maxFilesPerAction === 'number' &&
       files.length > Math.max(1, userPolicy.maxFilesPerAction)
     ) {
       reasons.push(`Action exceeds max file limit (${userPolicy.maxFilesPerAction}).`);
@@ -95,7 +95,10 @@ export class SafetyService {
     return { allowed: reasons.length === 0, reasons };
   }
 
-  requestConfirmation(actionPreview: ActionPreview, actor = "user"): {
+  requestConfirmation(
+    actionPreview: ActionPreview,
+    actor = 'user',
+  ): {
     confirmationToken: string;
     expiresAt: string;
     previewHash: string;
@@ -115,9 +118,9 @@ export class SafetyService {
       actionType: actionPreview.actionType,
       scopeJson: JSON.stringify({ fileCount: actionPreview.fileCount }),
       previewJson: JSON.stringify(actionPreview),
-      resultJson: JSON.stringify({ state: "awaiting-confirmation" }),
+      resultJson: JSON.stringify({ state: 'awaiting-confirmation' }),
       actor,
-      status: "previewed",
+      status: 'previewed',
     });
 
     return {
@@ -130,15 +133,15 @@ export class SafetyService {
   executeConfirmed(confirmationToken: string): ActionLogEntry {
     const pending = this.pending.get(confirmationToken);
     if (!pending) {
-      throw new Error("Invalid confirmation token.");
+      throw new Error('Invalid confirmation token.');
     }
 
     if (pending.consumed) {
-      throw new Error("Confirmation token already used.");
+      throw new Error('Confirmation token already used.');
     }
 
     if (Date.now() > pending.expiresAt) {
-      throw new Error("Confirmation token expired.");
+      throw new Error('Confirmation token expired.');
     }
 
     pending.consumed = true;
@@ -150,11 +153,11 @@ export class SafetyService {
       previewJson: JSON.stringify(pending.preview),
       resultJson: JSON.stringify({
         executed: true,
-        mutationMode: "simulated",
-        note: "Execution is simulation-only in MVP.",
+        mutationMode: 'simulated',
+        note: 'Execution is simulation-only in MVP.',
       }),
       actor: pending.actor,
-      status: "executed",
+      status: 'executed',
     });
   }
 
@@ -166,21 +169,24 @@ export class SafetyService {
 
     return entries.filter((entry) => {
       const preview = JSON.parse(entry.previewJson) as { filePaths?: string[] };
-      return preview.filePaths?.some((filePath) => filePath.startsWith(filters.pathPrefix ?? "")) ?? false;
+      return (
+        preview.filePaths?.some((filePath) => filePath.startsWith(filters.pathPrefix ?? '')) ??
+        false
+      );
     });
   }
 
   rollback(actionId: string): ActionLogEntry {
     return this.db.insertActionLog({
-      actionType: "rollback",
+      actionType: 'rollback',
       scopeJson: JSON.stringify({ actionId }),
       previewJson: JSON.stringify({ actionId }),
       resultJson: JSON.stringify({
         rolledBack: false,
-        note: "Rollback metadata logged, no filesystem mutation performed in MVP.",
+        note: 'Rollback metadata logged, no filesystem mutation performed in MVP.',
       }),
-      actor: "system",
-      status: "rolled_back",
+      actor: 'system',
+      status: 'rolled_back',
     });
   }
 }

@@ -21,6 +21,7 @@ Each issue should contain:
 ## M1 Smart Search App (Issues 1-8)
 
 ### 1) Bootstrap monorepo skeleton
+
 - **Goal**: Create `apps/desktop`, `packages/*`, and base tooling config.
 - **User value**: Enables parallel development without structural churn.
 - **Acceptance criteria**: Workspace boots; package boundaries match architecture docs.
@@ -30,6 +31,7 @@ Each issue should contain:
 - **Labels**: `core`, `docs`
 
 ### 2) Implement index roots configuration
+
 - **Goal**: User can select include/exclude scan roots.
 - **User value**: Control over indexed data and privacy.
 - **Acceptance criteria**: Persisted settings, exclusion patterns honored.
@@ -39,6 +41,7 @@ Each issue should contain:
 - **Labels**: `core`, `ui`
 
 ### 3) Initial full filesystem crawl service
+
 - **Goal**: Build initial scan job and metadata persistence.
 - **User value**: Search and insights become possible.
 - **Acceptance criteria**: Files recorded with type, path, size, timestamps.
@@ -48,6 +51,7 @@ Each issue should contain:
 - **Labels**: `core`, `performance`
 
 ### 4) Incremental filesystem watcher
+
 - **Goal**: Keep index fresh via create/update/delete events.
 - **User value**: Results stay accurate without rescanning.
 - **Acceptance criteria**: DB updates reflect live filesystem changes.
@@ -57,6 +61,7 @@ Each issue should contain:
 - **Labels**: `core`, `performance`
 
 ### 5) SQLite schema and migration runner
+
 - **Goal**: Implement initial `files`, `file_stats`, `embeddings`, `action_log`.
 - **User value**: Reliable local persistence.
 - **Acceptance criteria**: Forward-only migrations succeed from empty DB.
@@ -66,6 +71,7 @@ Each issue should contain:
 - **Labels**: `core`
 
 ### 6) Embedding pipeline for index updates
+
 - **Goal**: Generate embeddings for supported file content types.
 - **User value**: Semantic search beyond filenames.
 - **Acceptance criteria**: New/updated files enqueue embeddings; stale vectors removed.
@@ -75,6 +81,7 @@ Each issue should contain:
 - **Labels**: `ai`, `core`, `performance`
 
 ### 7) Semantic search API with metadata filters
+
 - **Goal**: Query by natural language and return ranked results.
 - **User value**: Fast discovery of relevant files.
 - **Acceptance criteria**: Supports filters by path/type/recency/size.
@@ -84,6 +91,7 @@ Each issue should contain:
 - **Labels**: `ai`, `core`
 
 ### 8) Search UI MVP
+
 - **Goal**: Build search screen with query bar, facets, result cards.
 - **User value**: Usable end-to-end search experience.
 - **Acceptance criteria**: Query submit, filter chips, open file/folder actions.
@@ -97,6 +105,7 @@ Each issue should contain:
 ## M2 Insights Layer (Issues 9-13)
 
 ### 9) Duplicate detector (hash + size grouping)
+
 - **Goal**: Identify exact duplicates safely.
 - **User value**: Recover wasted storage.
 - **Acceptance criteria**: Duplicate sets include canonical suggestion and confidence.
@@ -106,6 +115,7 @@ Each issue should contain:
 - **Labels**: `core`, `performance`
 
 ### 10) Stale file detector
+
 - **Goal**: Flag files likely unused over configurable windows.
 - **User value**: Identify archival candidates.
 - **Acceptance criteria**: Threshold options (6m/1y/2y/custom) and rationale fields.
@@ -115,6 +125,7 @@ Each issue should contain:
 - **Labels**: `core`
 
 ### 11) Storage hog analyzer ("Explain my computer")
+
 - **Goal**: Break down space usage by folder and file class.
 - **User value**: Immediate insight into disk consumption.
 - **Acceptance criteria**: Top folders/files and percentage breakdown.
@@ -124,6 +135,7 @@ Each issue should contain:
 - **Labels**: `core`, `ui`
 
 ### 12) Insights UI MVP
+
 - **Goal**: Build insights screen with duplicates/stale/large tabs.
 - **User value**: One place to review cleanup opportunities.
 - **Acceptance criteria**: Sort/filter findings and stage candidate actions.
@@ -133,6 +145,7 @@ Each issue should contain:
 - **Labels**: `ui`
 
 ### 13) Action staging model and preview DTO
+
 - **Goal**: Define shared structure for staged actions and preview payloads.
 - **User value**: Clear understanding before changes occur.
 - **Acceptance criteria**: Typed schema used across insights/search/assistant.
@@ -146,6 +159,7 @@ Each issue should contain:
 ## M3 Assistant Layer (Issues 14-17)
 
 ### 14) Ollama integration adapter
+
 - **Goal**: Implement local model client with configurable model selection.
 - **User value**: Local AI assistance without cloud dependency.
 - **Acceptance criteria**: Health check, invoke, timeout, retry behavior.
@@ -155,6 +169,7 @@ Each issue should contain:
 - **Labels**: `ai`, `core`
 
 ### 15) Folder summarization endpoint
+
 - **Goal**: Generate concise folder summaries based on metadata/content snippets.
 - **User value**: Quickly understand unknown folders.
 - **Acceptance criteria**: Summary includes key file groups and confidence notes.
@@ -164,6 +179,7 @@ Each issue should contain:
 - **Labels**: `ai`, `core`
 
 ### 16) Assistant Q&A over indexed files
+
 - **Goal**: Answer natural language questions with file-grounded context.
 - **User value**: Ask "where is X?" without manual hunting.
 - **Acceptance criteria**: Response includes references to relevant files/folders.
@@ -173,6 +189,7 @@ Each issue should contain:
 - **Labels**: `ai`, `ui`
 
 ### 17) Contextual suggestion cards
+
 - **Goal**: Show proactive but safe recommendations in home/assistant views.
 - **User value**: Useful guidance without noisy automation.
 - **Acceptance criteria**: Cards include reason, impact estimate, and dismiss action.
@@ -186,6 +203,7 @@ Each issue should contain:
 ## M4 Controlled Automation (Issues 18-20)
 
 ### 18) Rule schema and simulation engine
+
 - **Goal**: Define automation rule DSL and dry-run evaluator.
 - **User value**: Confidence in automation before activation.
 - **Acceptance criteria**: Simulations output deterministic preview payload.
@@ -195,6 +213,7 @@ Each issue should contain:
 - **Labels**: `core`, `safety`
 
 ### 19) Rule activation UX and policy prompts
+
 - **Goal**: Build UI to create/edit/activate rules with explicit scope.
 - **User value**: Controlled automation onboarding.
 - **Acceptance criteria**: Activation requires policy acknowledgment and preview.
@@ -204,6 +223,7 @@ Each issue should contain:
 - **Labels**: `ui`, `safety`
 
 ### 20) Safety gate execution + rollback MVP
+
 - **Goal**: Finalize confirm-token flow, executeConfirmed path, and rollback API.
 - **User value**: Trustworthy and reversible actions.
 - **Acceptance criteria**: Non-replayable tokens, action log linkage, rollback coverage matrix.

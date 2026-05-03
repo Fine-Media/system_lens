@@ -1,6 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { configDir } from "./index-config.js";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { configDir } from './index-config.js';
 
 export const INDEX_STATE_VERSION = 1 as const;
 
@@ -11,34 +11,39 @@ export interface IndexBootstrapState {
 }
 
 export function indexStatePath(workspaceRoot: string): string {
-  return path.join(configDir(workspaceRoot), "index-state.json");
+  return path.join(configDir(workspaceRoot), 'index-state.json');
 }
 
 export async function loadIndexState(workspaceRoot: string): Promise<IndexBootstrapState | null> {
   const file = indexStatePath(workspaceRoot);
   try {
-    const raw = await fs.readFile(file, "utf-8");
+    const raw = await fs.readFile(file, 'utf-8');
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") {
+    if (!parsed || typeof parsed !== 'object') {
       return null;
     }
     const o = parsed as Record<string, unknown>;
     const last =
-      typeof o.lastFullIndexAt === "string" && o.lastFullIndexAt.length > 0 ? o.lastFullIndexAt : null;
+      typeof o.lastFullIndexAt === 'string' && o.lastFullIndexAt.length > 0
+        ? o.lastFullIndexAt
+        : null;
     return { version: INDEX_STATE_VERSION, lastFullIndexAt: last };
   } catch (error: unknown) {
     const err = error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
+    if (err.code === 'ENOENT') {
       return null;
     }
     throw error;
   }
 }
 
-export async function saveIndexState(workspaceRoot: string, state: IndexBootstrapState): Promise<void> {
+export async function saveIndexState(
+  workspaceRoot: string,
+  state: IndexBootstrapState,
+): Promise<void> {
   const file = indexStatePath(workspaceRoot);
   await fs.mkdir(configDir(workspaceRoot), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(state, null, 2), "utf-8");
+  await fs.writeFile(file, JSON.stringify(state, null, 2), 'utf-8');
 }
 
 /**
@@ -50,7 +55,7 @@ export async function saveIndexState(workspaceRoot: string, state: IndexBootstra
  * - Default — same as `INDEX_FULL_ON_START=0` (first successful run only).
  */
 export async function shouldRunStartupFullIndex(workspaceRoot: string): Promise<boolean> {
-  if (process.env.INDEX_FORCE_FULL === "1" || process.env.INDEX_FULL_ON_START === "1") {
+  if (process.env.INDEX_FORCE_FULL === '1' || process.env.INDEX_FULL_ON_START === '1') {
     return true;
   }
 

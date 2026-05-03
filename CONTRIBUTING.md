@@ -17,12 +17,12 @@ Maintainers can copy concrete open work from **[docs/project/GITHUB_ISSUES_TO_CR
 
 We use separate templates so work is easy to triage:
 
-| Kind | Template | Use when |
-|------|----------|----------|
-| **Bug** | Bug report | Something regressed or is incorrect. |
-| **Feature** | Feature request | New capability or meaningful UX improvement. |
-| **Task / chore** | Task / chore | Refactors, tests, CI, deps, performance, internal cleanup. |
-| **Docs** | Documentation | Clarifying setup, trust model, or contributor flow. |
+| Kind             | Template        | Use when                                                   |
+| ---------------- | --------------- | ---------------------------------------------------------- |
+| **Bug**          | Bug report      | Something regressed or is incorrect.                       |
+| **Feature**      | Feature request | New capability or meaningful UX improvement.               |
+| **Task / chore** | Task / chore    | Refactors, tests, CI, deps, performance, internal cleanup. |
+| **Docs**         | Documentation   | Clarifying setup, trust model, or contributor flow.        |
 
 You can still open a **blank issue** if none of the templates fit.
 
@@ -58,6 +58,23 @@ Keep changes **focused** on the problem you are solving. Avoid drive-by refactor
 4. **Scope:** One logical change per PR when possible; large features can be split.
 
 We use the [pull request template](.github/pull_request_template.md) to keep reviews efficient.
+
+## Continuous integration
+
+Every push to `main` and every pull request triggers the **CI** workflow (`.github/workflows/ci.yml`). The pipeline:
+
+1. Checks out the repo and runs `npm ci` from the **repository root**.
+2. Runs `npm run build` — **must pass** for a PR to merge.
+3. Runs `npm run typecheck` — runs even if the build step fails so you always get full diagnostics.
+
+The matrix tests against **Node 20** and **Node 22**. You can run the same checks locally before pushing:
+
+```bash
+npm ci
+npm run format
+npm run build
+npm run typecheck
+```
 
 ## Code style
 
