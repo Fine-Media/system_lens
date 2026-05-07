@@ -50,6 +50,7 @@ function resolveLogLevel(): LogLevel {
 const LOG_LEVEL = resolveLogLevel();
 const MAX_JSON_BODY_BYTES = Number(process.env.MAX_JSON_BODY_BYTES ?? "1048576");
 const LOG_SLOW_REQUEST_MS = Number(process.env.LOG_SLOW_REQUEST_MS ?? "2000");
+const LOG_HEARTBEAT_SEC = Number(process.env.LOG_HEARTBEAT_SEC ?? "0");
 
 function shouldEmit(level: LogLevel): boolean {
   return LEVEL_RANK[level] >= LEVEL_RANK[LOG_LEVEL];
@@ -76,6 +77,13 @@ function serializeError(error: unknown): Record<string, unknown> {
 
 function asFinitePositiveInt(value: number, fallback: number): number {
   if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
+}
+
+function asFiniteNonNegativeInt(value: number, fallback: number): number {
+  if (!Number.isFinite(value) || value < 0) {
     return fallback;
   }
   return Math.floor(value);
@@ -130,6 +138,7 @@ const searchController = new SearchController(searchService);
 
 let indexConfig!: IndexRootsConfig;
 let stopIndexWatchers: (() => void) | null = null;
+let stopHeartbeat: (() => void) | null = null;
 
 function defaultIndexScopePath(): string {
   return indexConfig.roots[0] ?? workspaceRoot;
@@ -451,6 +460,7 @@ async function bootstrap(): Promise<void> {
     const requestId = crypto.randomUUID();
     const method = req.method ?? "UNKNOWN";
     const requestUrl = req.url ?? "/";
+    const reqContentLength = req.headers["content-length"] ?? undefined;
     const userAgent = req.headers["user-agent"] ?? undefined;
     const forwarded = req.headers["x-forwarded-for"];
     const remoteIp =
@@ -463,6 +473,7 @@ async function bootstrap(): Promise<void> {
       url: requestUrl,
       remoteIp,
       userAgent,
+      contentLength: reqContentLength,
     });
 
     res.on("finish", () => {
@@ -500,6 +511,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const port = Number(process.env.PORT ?? "3180");
+  const heartbeatSec = asFiniteNonNegativeInt(LOG_HEARTBEAT_SEC, 0);
   server.listen(port, () => {
     logLine("info", "server.started", {
       app: "System Lens",
@@ -508,6 +520,7 @@ async function bootstrap(): Promise<void> {
       logLevel: LOG_LEVEL,
       maxJsonBodyBytes: asFinitePositiveInt(MAX_JSON_BODY_BYTES, 1024 * 1024),
       slowRequestMs: asFinitePositiveInt(LOG_SLOW_REQUEST_MS, 2000),
+      heartbeatSec,
       embedder: embeddingProvider.modelLabel(),
       roots: indexConfig.roots.length,
       maxDepth: indexConfig.maxDepth,
@@ -528,10 +541,29 @@ async function bootstrap(): Promise<void> {
       );
       logLine("info", "index.watch.started", { roots: indexConfig.roots.length });
     }
+
+    if (heartbeatSec > 0) {
+      const timer = setInterval(() => {
+        const mem = process.memoryUsage();
+        logLine("debug", "server.heartbeat", {
+          uptimeSec: Math.floor(process.uptime()),
+          rssBytes: mem.rss,
+          heapUsedBytes: mem.heapUsed,
+          heapTotalBytes: mem.heapTotal,
+          externalBytes: mem.external,
+          activeHandles: (process as NodeJS.Process & { _getActiveHandles?: () => unknown[] })._getActiveHandles?.()
+            .length,
+        });
+      }, heartbeatSec * 1000);
+      stopHeartbeat = () => clearInterval(timer);
+      logLine("info", "server.heartbeat.started", { everySec: heartbeatSec });
+    }
   });
 
-  const shutdown = (): void => {
-    logLine("info", "server.shutdown.start");
+  const shutdown = (signal: "SIGINT" | "SIGTERM"): void => {
+    logLine("info", "server.shutdown.start", { signal });
+    stopHeartbeat?.();
+    stopHeartbeat = null;
     stopIndexWatchers?.();
     stopIndexWatchers = null;
     server.close(() => {
@@ -540,8 +572,20 @@ async function bootstrap(): Promise<void> {
     });
   };
 
-  process.once("SIGINT", shutdown);
-  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+
+  process.on("warning", (warning) => {
+    logLine("warn", "process.warning", serializeError(warning));
+  });
+  process.on("unhandledRejection", (reason) => {
+    logLine("error", "process.unhandled_rejection", serializeError(reason));
+  });
+  process.on("uncaughtException", (error) => {
+    logLine("error", "process.uncaught_exception", serializeError(error));
+    process.exitCode = 1;
+    setTimeout(() => process.exit(1), 200).unref();
+  });
 }
 
 bootstrap().catch((error: unknown) => {

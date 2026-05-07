@@ -8,7 +8,7 @@
       "args": [
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-File", "${workspaceFolder}\\setup.ps1"
+        "-File", "${workspaceFolder}\\scripts\\setup.ps1"
       ],
       "options": {
         "cwd": "${workspaceFolder}"

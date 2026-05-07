@@ -34,4 +34,5 @@ Electron-based UI and interaction layer for System Lens.
 - Desktop server logs are structured JSON lines (stdout/stderr).
 - Configure `LOG_LEVEL` (`debug`, `info`, `warn`, `error`) to control verbosity.
 - Configure `LOG_SLOW_REQUEST_MS` to elevate slow HTTP requests to warning logs.
+- Configure `LOG_HEARTBEAT_SEC` to emit periodic runtime diagnostics (uptime + memory) in debug logs.
 - Configure `MAX_JSON_BODY_BYTES` to guard API payload size (returns `413` on overflow).
