@@ -122,7 +122,7 @@ function createReqLogger(requestId: string) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const workspaceRoot = path.resolve(__dirname, "../../../..");
+const workspaceRoot = path.resolve(__dirname, "../../..");
 const publicDir = path.resolve(__dirname, "../public");
 const dbPath = path.resolve(workspaceRoot, ".system-lens.sqlite");
 
