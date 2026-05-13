@@ -312,14 +312,31 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   if (url.pathname === "/api/search" && req.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim();
     const limit = Number(url.searchParams.get("limit") ?? "20");
-    const extension = url.searchParams.get("ext");
+    const extension = url.searchParams.get("ext")?.trim();
+    const requestedSort = url.searchParams.get("sort") ?? "relevance";
+    const sort = ["relevance", "name", "date", "size"].includes(requestedSort) ? requestedSort : "relevance";
+    const dir = url.searchParams.get("dir") === "asc" ? "asc" : "desc";
+    const pageLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 20;
+    const searchLimit = sort === "relevance" ? pageLimit : 100;
     const results = await searchController.query(
       query,
       extension ? { extensions: [extension.startsWith(".") ? extension : `.${extension}`] } : {},
-      Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 20,
+      searchLimit,
     );
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    const sorted =
+      sort === "name"
+        ? results.sort((a, b) => collator.compare(path.basename(a.path), path.basename(b.path)))
+        : sort === "date"
+          ? results.sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))
+          : sort === "size"
+            ? results.sort((a, b) => a.sizeBytes - b.sizeBytes)
+            : results;
+    if (dir === "desc" && sort !== "relevance") {
+      sorted.reverse();
+    }
 
-    sendJson(res, 200, { query, count: results.length, results });
+    sendJson(res, 200, { query, count: sorted.length, results: sorted.slice(0, pageLimit) });
     return;
   }
 
