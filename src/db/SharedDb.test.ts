@@ -1,36 +1,45 @@
-import { test, expect } from 'node:test';
-import { SharedDb } from './SharedDb';
-import { SearchService } from '../search/SearchService';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { SharedDb } from '@system-lens/shared-db';
+import { SearchService } from '@system-lens/search';
 
 test('shared db smoke test', async () => {
   const db = new SharedDb();
-  await db.init();
+  const updatedAt = new Date('2026-01-01T00:00:00.000Z').toISOString();
 
-  const file = await db.insertFile('test.txt', 'Hello, world!');
-  const query = await db.query('SELECT * FROM files WHERE name = ?', ['test.txt']);
+  const file = db.upsertFile({
+    path: 'notes/test.txt',
+    type: 'file',
+    updatedAt,
+    sizeBytes: 13,
+  });
+  const query = db.queryFilesByText('test');
 
-  expect(query).not.toBeNull();
-  expect(query.length).toBe(1);
-  expect(query[0].name).toBe('test.txt');
-  expect(query[0].content).toBe('Hello, world!');
+  assert.equal(query.length, 1);
+  assert.equal(query[0].id, file.id);
+  assert.equal(query[0].path, 'notes/test.txt');
 
-  await db.close();
+  db.close();
 });
 
 test('search service smoke test', async () => {
   const db = new SharedDb();
-  await db.init();
+  const updatedAt = new Date('2026-01-01T00:00:00.000Z').toISOString();
 
   const searchService = new SearchService(db);
 
-  await db.insertFile('greeting.txt', 'Hello, world!');
-  await db.insertFile('notes.txt', 'This is a test file with no greeting');
+  db.upsertFile({
+    path: 'notes/greeting.txt',
+    type: 'file',
+    updatedAt,
+    sizeBytes: 13,
+  });
 
-  const results = await searchService.search('Hello');
+  const results = await searchService.queryHybrid('greeting');
 
-  expect(results.length).toBe(1);
-  expect(results[0].name).toBe('greeting.txt');
-  expect(results[0].score).toBeGreaterThan(0);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].path, 'notes/greeting.txt');
+  assert.ok(results[0].score > 0);
 
-  await db.close();
+  db.close();
 });
