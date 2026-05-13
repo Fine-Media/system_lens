@@ -82,7 +82,31 @@ export interface AutomationRun {
   status: RunStatus;
 }
 
-const INITIAL_SCHEMA_SQL = `
+export interface AppliedMigration {
+  version: number;
+  name: string;
+  appliedAt: string;
+}
+
+interface Migration {
+  version: number;
+  name: string;
+  sql: string;
+}
+
+const MIGRATION_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS schema_migrations(
+  version INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  applied_at TEXT NOT NULL
+);
+`;
+
+const MIGRATIONS: Migration[] = [
+  {
+    version: 1,
+    name: "initial_schema",
+    sql: `
 CREATE TABLE IF NOT EXISTS files(
   id TEXT PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
@@ -159,7 +183,9 @@ CREATE INDEX IF NOT EXISTS idx_findings_status ON insight_findings(status);
 CREATE INDEX IF NOT EXISTS idx_action_log_created_at ON action_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_rules_status ON automation_rules(status);
 CREATE INDEX IF NOT EXISTS idx_runs_rule_id ON automation_runs(rule_id);
-`;
+`,
+  },
+];
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -187,11 +213,59 @@ export class SharedDb {
 
   constructor(databasePath = ":memory:") {
     this.db = new DatabaseSync(databasePath);
-    this.db.exec(INITIAL_SCHEMA_SQL);
+    this.runMigrations();
   }
 
   getSchemaSql(): string {
-    return INITIAL_SCHEMA_SQL.trim();
+    return [MIGRATION_TABLE_SQL, ...MIGRATIONS.map((migration) => migration.sql)].join("\n").trim();
+  }
+
+  getAppliedMigrations(): AppliedMigration[] {
+    const rows = this.db
+      .prepare(
+        `SELECT version, name, applied_at
+         FROM schema_migrations
+         ORDER BY version ASC`,
+      )
+      .all() as Array<{
+      version: number;
+      name: string;
+      applied_at: string;
+    }>;
+
+    return rows.map((row) => ({
+      version: row.version,
+      name: row.name,
+      appliedAt: row.applied_at,
+    }));
+  }
+
+  private runMigrations(): void {
+    this.db.exec(MIGRATION_TABLE_SQL);
+
+    const applied = new Set(this.getAppliedMigrations().map((migration) => migration.version));
+    const migrations = [...MIGRATIONS].sort((a, b) => a.version - b.version);
+
+    for (const migration of migrations) {
+      if (applied.has(migration.version)) {
+        continue;
+      }
+
+      this.db.exec("BEGIN");
+      try {
+        this.db.exec(migration.sql);
+        this.db
+          .prepare(
+            `INSERT INTO schema_migrations(version, name, applied_at)
+             VALUES(?, ?, ?)`,
+          )
+          .run(migration.version, migration.name, nowIso());
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
   }
 
   upsertFile(input: {

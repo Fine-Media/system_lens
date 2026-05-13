@@ -102,6 +102,12 @@ npm --workspace @system-lens/desktop start
 
 If the server fails with **address already in use** on port 3180, stop the other process using that port or set `PORT` to a free port.
 
+### Filesystem watching on Linux
+
+Node's native recursive `fs.watch` behavior differs by OS. System Lens uses native recursive watching on Windows and macOS. On Linux, it registers watchers for each indexed directory up to the configured `maxDepth` and adds watchers for newly created directories when parent change events arrive.
+
+If the OS watch limit is too low or a directory cannot be watched, the server logs `index.watch.error`. In that case, run a safe full reindex by setting `INDEX_FORCE_FULL=1` for the next startup, or set `INDEX_FULL_ON_START=1` when you prefer a full crawl on every startup.
+
 ## What it is
 
 - AI-powered file intelligence over your local machine.
