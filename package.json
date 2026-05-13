@@ -1,9 +1,17 @@
 {
+  "name": "system-lens",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
+    "build": "tsc -b tsconfig.json",
     "test": "node --test --enable-source-maps"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
   }
 }
