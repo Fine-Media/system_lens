@@ -33,7 +33,9 @@ pnpm-debug.log*
 .eslintcache
 tmp/
 temp/
-.github/
+.github/*
+!.github/workflows/
+!.github/workflows/**
 
 # Local runtime data
 .system-lens.sqlite

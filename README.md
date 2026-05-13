@@ -42,6 +42,10 @@ npm run build
 npm --workspace @system-lens/desktop start
 ```
 
+### Continuous integration
+
+Pull requests and pushes to `main` run the GitHub Actions workflow in `.github/workflows/ci.yml`. The workflow installs dependencies from the repository root with `npm ci` and fails if `npm run build` fails.
+
 ### Optional — different port (PowerShell)
 
 ```powershell
