@@ -42,6 +42,17 @@ npm run build
 npm --workspace @system-lens/desktop start
 ```
 
+### Native Electron window
+
+To launch the same local HTTP server inside an Electron shell:
+
+```bash
+npm install
+npm run start:electron
+```
+
+The Electron main process starts the desktop server on `PORT` if provided, otherwise `3180`, waits for `http://127.0.0.1:<port>`, and opens the static UI in a native window. Notarized platform installers are out of scope for this MVP shell.
+
 ### Optional — different port (PowerShell)
 
 ```powershell
@@ -142,7 +153,7 @@ When you open an issue, GitHub offers templates for **bugs**, **features**, **ta
 
 ## Repository Shape
 
-- `apps/desktop`: HTTP server and static UI (MVP; Electron shell planned).
+- `apps/desktop`: HTTP server, static UI, and Electron shell.
 - `packages/indexer`: file crawling and incremental filesystem sync.
 - `packages/search`: embedding and semantic retrieval services.
 - `packages/system-insights`: non-destructive analyzers.

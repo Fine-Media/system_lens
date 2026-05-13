@@ -6,6 +6,7 @@
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
   "scripts": {
+    "electron": "electron dist/electron/main.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/server.js"
@@ -18,5 +19,8 @@
     "@system-lens/search": "file:../../packages/search",
     "@system-lens/shared-db": "file:../../packages/shared-db",
     "@system-lens/system-insights": "file:../../packages/system-insights"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1"
   }
 }
