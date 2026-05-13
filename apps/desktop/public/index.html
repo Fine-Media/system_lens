@@ -142,6 +142,7 @@
       }
 
       input,
+      select,
       textarea,
       button {
         border: 1px solid var(--border);
@@ -175,6 +176,18 @@
         color: var(--muted);
         font-size: 13px;
         margin: 0;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 140px;
+      }
+
+      .field.compact {
+        max-width: 180px;
       }
 
       label.meta {
@@ -217,6 +230,61 @@
 
       #search-meta {
         margin: 0;
+      }
+
+      .result-list {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: min(52vh, 720px);
+        margin: 0;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--log-bg);
+        overflow: auto;
+      }
+
+      .result-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 12px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0f1a2c;
+      }
+
+      .result-path {
+        margin: 0;
+        color: var(--text);
+        font-family: "Cascadia Code", "Consolas", "ui-monospace", monospace;
+        font-size: 13px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .result-details {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .result-actions {
+        display: flex;
+        gap: 8px;
+        align-items: start;
+      }
+
+      @media (max-width: 720px) {
+        .result-item {
+          grid-template-columns: 1fr;
+        }
+
+        .field.compact {
+          max-width: none;
+        }
       }
     </style>
   </head>
@@ -272,15 +340,33 @@
         <div class="panel-tools">
           <h2>Search</h2>
           <div class="row">
-            <input id="search-query" type="text" placeholder="Search files..." />
-            <input id="search-ext" type="text" placeholder="ext (optional)" style="max-width: 140px" />
+            <div class="field">
+              <label class="meta" for="search-query">Query</label>
+              <input id="search-query" type="text" placeholder="Search files..." />
+            </div>
+            <div class="field compact">
+              <label class="meta" for="search-ext">Extension</label>
+              <input id="search-ext" type="text" placeholder=".md" />
+            </div>
+            <div class="field compact">
+              <label class="meta" for="search-sort">Sort</label>
+              <select id="search-sort">
+                <option value="relevance:desc">Relevance</option>
+                <option value="name:asc">Name A-Z</option>
+                <option value="name:desc">Name Z-A</option>
+                <option value="date:desc">Newest first</option>
+                <option value="date:asc">Oldest first</option>
+                <option value="size:desc">Largest first</option>
+                <option value="size:asc">Smallest first</option>
+              </select>
+            </div>
             <button id="search-run" type="button">Run</button>
           </div>
           <p id="search-meta" class="meta">Ready.</p>
         </div>
         <div class="log-wrap">
           <label for="search-output">Results</label>
-          <pre id="search-output" class="log-view" tabindex="0"></pre>
+          <div id="search-output" class="result-list" tabindex="0" role="list" aria-live="polite"></div>
         </div>
       </section>
 
@@ -412,11 +498,111 @@
         const params = new URLSearchParams();
         params.set("q", $("search-query").value || "");
         if ($("search-ext").value) params.set("ext", $("search-ext").value);
+        const [sort, dir] = $("search-sort").value.split(":");
+        params.set("sort", sort);
+        params.set("dir", dir);
         const start = performance.now();
         const payload = await callJson(`/api/search?${params.toString()}`);
         $("search-meta").textContent = `${payload.count} results in ${Math.round(performance.now() - start)}ms`;
-        $("search-output").textContent = stringify(payload.results.slice(0, 15));
+        renderSearchResults(payload.results.slice(0, 15));
       });
+
+      $("search-query").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          $("search-run").click();
+        }
+      });
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes)) return "unknown size";
+        if (bytes < 1024) return `${bytes} B`;
+        const units = ["KB", "MB", "GB", "TB"];
+        let value = bytes / 1024;
+        let index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+          value /= 1024;
+          index += 1;
+        }
+        return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[index]}`;
+      }
+
+      function folderPathFor(filePath) {
+        const normalized = filePath.replace(/\\/g, "/");
+        const index = normalized.lastIndexOf("/");
+        if (index <= 0) return filePath;
+        return filePath.slice(0, index);
+      }
+
+      function fileUrlForPath(filePath) {
+        const normalized = filePath.replace(/\\/g, "/");
+        const prefix = normalized.startsWith("/") ? "file://" : "file:///";
+        return prefix + encodeURI(normalized);
+      }
+
+      async function copyText(value) {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return;
+        }
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+        textArea.setAttribute("readonly", "true");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.append(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
+
+      function renderSearchResults(results) {
+        const output = $("search-output");
+        output.replaceChildren();
+        if (!results.length) {
+          output.textContent = "No results.";
+          return;
+        }
+
+        results.forEach((result) => {
+          const item = document.createElement("article");
+          item.className = "result-item";
+          item.setAttribute("role", "listitem");
+
+          const body = document.createElement("div");
+          const pathText = document.createElement("p");
+          pathText.className = "result-path";
+          pathText.textContent = result.path;
+          const details = document.createElement("p");
+          details.className = "result-details";
+          const updated = result.updatedAt ? new Date(result.updatedAt).toLocaleString() : "unknown date";
+          details.textContent = `${result.ext || "no ext"} | ${formatBytes(result.sizeBytes)} | ${updated} | score ${Number(result.score ?? 0).toFixed(2)}`;
+          body.append(pathText, details);
+
+          const actions = document.createElement("div");
+          actions.className = "result-actions";
+          const copyPath = document.createElement("button");
+          copyPath.type = "button";
+          copyPath.textContent = "Copy path";
+          copyPath.addEventListener("click", async () => {
+            await copyText(result.path);
+            $("search-meta").textContent = "Path copied.";
+          });
+
+          const reveal = document.createElement("button");
+          reveal.type = "button";
+          reveal.textContent = "Reveal folder";
+          reveal.addEventListener("click", async () => {
+            const folderPath = folderPathFor(result.path);
+            await copyText(folderPath);
+            window.open(fileUrlForPath(folderPath), "_blank", "noopener");
+            $("search-meta").textContent = "Folder path copied; opened where the browser allows file links.";
+          });
+
+          actions.append(copyPath, reveal);
+          item.append(body, actions);
+          output.append(item);
+        });
+      }
 
       $("insights-run").addEventListener("click", async () => {
         const payload = await callJson("/api/insights/run", {
