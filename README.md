@@ -99,6 +99,10 @@ npm --workspace @system-lens/desktop start
 | `INDEX_FULL_ON_START` | Set to `1` to run a full index on **every** startup (heavy). |
 | `INDEX_WATCH` | Set to `0` to disable filesystem watchers. |
 | `SEARCH_WARM_EMBEDDINGS_MAX` | After a full index, pre-warm embeddings for up to this many files (async; `0` = off). |
+| `SEARCH_EMBED_MAX_CHARS` | Maximum text characters read per file for embedding input (default `32000`, capped at `200000`). |
+| `SEARCH_EMBED_CHUNK_CHARS` | Character count per embedding chunk (default `4000`). |
+| `SEARCH_EMBED_CHUNK_OVERLAP_CHARS` | Overlap between adjacent embedding chunks (default up to `400`). |
+| `SEARCH_EMBED_MAX_CHUNKS_PER_FILE` | Maximum embedding chunks stored per file (default `32`). |
 
 If the server fails with **address already in use** on port 3180, stop the other process using that port or set `PORT` to a free port.
 

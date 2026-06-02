@@ -28,6 +28,18 @@ export interface EmbeddingRecord {
   updatedAt: string;
 }
 
+export interface EmbeddingChunkRecord {
+  id: string;
+  fileId: string;
+  model: string;
+  chunkIndex: number;
+  startChar: number;
+  endChar: number;
+  contentPreview: string;
+  vectorRef: string;
+  updatedAt: string;
+}
+
 export interface SearchFilters {
   pathPrefix?: string;
   extensions?: string[];
@@ -110,6 +122,19 @@ CREATE TABLE IF NOT EXISTS embeddings(
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS embedding_chunks(
+  id TEXT PRIMARY KEY,
+  file_id TEXT NOT NULL REFERENCES files(id),
+  model TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  start_char INTEGER NOT NULL,
+  end_char INTEGER NOT NULL,
+  content_preview TEXT NOT NULL,
+  vector_ref TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(file_id, model, chunk_index)
+);
+
 CREATE TABLE IF NOT EXISTS insight_findings(
   id TEXT PRIMARY KEY,
   detector TEXT NOT NULL,
@@ -155,6 +180,7 @@ CREATE INDEX IF NOT EXISTS idx_files_path ON files(path);
 CREATE INDEX IF NOT EXISTS idx_files_updated_at ON files(updated_at);
 CREATE INDEX IF NOT EXISTS idx_files_size_bytes ON files(size_bytes);
 CREATE INDEX IF NOT EXISTS idx_embeddings_file_id ON embeddings(file_id);
+CREATE INDEX IF NOT EXISTS idx_embedding_chunks_file_model ON embedding_chunks(file_id, model);
 CREATE INDEX IF NOT EXISTS idx_findings_status ON insight_findings(status);
 CREATE INDEX IF NOT EXISTS idx_action_log_created_at ON action_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_rules_status ON automation_rules(status);
@@ -370,8 +396,92 @@ export class SharedDb {
     return { id, fileId, model, vectorRef, updatedAt };
   }
 
+  upsertEmbeddingChunk(input: {
+    fileId: string;
+    model: string;
+    chunkIndex: number;
+    startChar: number;
+    endChar: number;
+    contentPreview: string;
+    vectorRef: string;
+  }): EmbeddingChunkRecord {
+    const id = stableId("embedding_chunk", `${input.fileId}:${input.model}:${input.chunkIndex}`);
+    const updatedAt = nowIso();
+
+    this.db
+      .prepare(
+        `INSERT INTO embedding_chunks(
+           id, file_id, model, chunk_index, start_char, end_char, content_preview, vector_ref, updated_at
+         )
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(file_id, model, chunk_index) DO UPDATE SET
+           start_char = excluded.start_char,
+           end_char = excluded.end_char,
+           content_preview = excluded.content_preview,
+           vector_ref = excluded.vector_ref,
+           updated_at = excluded.updated_at`,
+      )
+      .run(
+        id,
+        input.fileId,
+        input.model,
+        input.chunkIndex,
+        input.startChar,
+        input.endChar,
+        input.contentPreview,
+        input.vectorRef,
+        updatedAt,
+      );
+
+    return {
+      id,
+      fileId: input.fileId,
+      model: input.model,
+      chunkIndex: input.chunkIndex,
+      startChar: input.startChar,
+      endChar: input.endChar,
+      contentPreview: input.contentPreview,
+      vectorRef: input.vectorRef,
+      updatedAt,
+    };
+  }
+
+  listEmbeddingChunks(fileId: string, model: string): EmbeddingChunkRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT id, file_id, model, chunk_index, start_char, end_char, content_preview, vector_ref, updated_at
+         FROM embedding_chunks
+         WHERE file_id = ? AND model = ?
+         ORDER BY chunk_index ASC`,
+      )
+      .all(fileId, model) as Array<{
+      id: string;
+      file_id: string;
+      model: string;
+      chunk_index: number;
+      start_char: number;
+      end_char: number;
+      content_preview: string;
+      vector_ref: string;
+      updated_at: string;
+    }>;
+
+    return rows.map((row) => ({
+      id: row.id,
+      fileId: row.file_id,
+      model: row.model,
+      chunkIndex: row.chunk_index,
+      startChar: row.start_char,
+      endChar: row.end_char,
+      contentPreview: row.content_preview,
+      vectorRef: row.vector_ref,
+      updatedAt: row.updated_at,
+    }));
+  }
+
   removeEmbedding(fileId: string): void {
     this.db.prepare("DELETE FROM embeddings WHERE file_id = ?").run(fileId);
+    this.db.prepare("DELETE FROM embedding_chunks WHERE file_id = ?").run(fileId);
   }
 
   listFiles(limit = 100): FileRecord[] {
