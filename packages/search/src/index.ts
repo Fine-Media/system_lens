@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
-import { QueryFileResult, SearchFilters, SharedDb } from "@system-lens/shared-db";
-import { buildEmbeddingInput } from "./text-for-embedding.js";
+import { EmbeddingChunkRecord, FileRecord, QueryFileResult, SearchFilters, SharedDb } from "@system-lens/shared-db";
+import { buildEmbeddingChunks, buildEmbeddingInput } from "./text-for-embedding.js";
 
 export interface SearchResult extends QueryFileResult {
   rationale: string;
+  chunkIndex?: number;
+  chunkStartChar?: number;
+  chunkEndChar?: number;
+  snippet?: string;
 }
 
 export interface EmbeddingProvider {
@@ -63,7 +67,7 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
  * Prefer Ollama when `OLLAMA_HOST` or `OLLAMA_BASE_URL` is set; otherwise deterministic hashes.
  * Override model with `OLLAMA_EMBED_MODEL` (default `nomic-embed-text`).
  */
-export { buildEmbeddingInput, isProbablyTextualFile } from "./text-for-embedding.js";
+export { buildEmbeddingChunks, buildEmbeddingInput, isProbablyTextualFile } from "./text-for-embedding.js";
 
 export function createEmbeddingProviderFromEnv(): EmbeddingProvider {
   const raw = process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL;
@@ -72,6 +76,10 @@ export function createEmbeddingProviderFromEnv(): EmbeddingProvider {
     return new OllamaEmbeddingProvider(raw.trim(), model);
   }
   return new DeterministicEmbeddingProvider();
+}
+
+interface CachedChunkVector extends EmbeddingChunkRecord {
+  vector: number[];
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -96,7 +104,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export class SearchService {
   private readonly db: SharedDb;
   private readonly embedder: EmbeddingProvider;
-  private readonly embeddingCache = new Map<string, number[]>();
+  private readonly chunkEmbeddingCache = new Map<string, CachedChunkVector[]>();
 
   constructor(db: SharedDb, embedder: EmbeddingProvider = new DeterministicEmbeddingProvider()) {
     this.db = db;
@@ -109,11 +117,27 @@ export class SearchService {
       throw new Error(`Cannot index missing file: ${fileId}`);
     }
 
-    this.embeddingCache.delete(fileId);
-    const input = await buildEmbeddingInput(file);
-    const vector = await this.embedder.embedText(input);
-    this.embeddingCache.set(fileId, vector);
-    this.db.upsertEmbedding(fileId, this.embedder.modelLabel(), JSON.stringify(vector));
+    const cacheKey = this.cacheKey(fileId);
+    this.chunkEmbeddingCache.delete(cacheKey);
+    this.db.removeEmbedding(fileId);
+
+    const chunks = await buildEmbeddingChunks(file);
+    const cachedChunks: CachedChunkVector[] = [];
+    for (const chunk of chunks) {
+      const vector = await this.embedder.embedText(chunk.text);
+      const record = this.db.upsertEmbeddingChunk({
+        fileId,
+        model: this.embedder.modelLabel(),
+        chunkIndex: chunk.chunkIndex,
+        startChar: chunk.startChar,
+        endChar: chunk.endChar,
+        contentPreview: chunk.preview,
+        vectorRef: JSON.stringify(vector),
+      });
+      cachedChunks.push({ ...record, vector });
+    }
+
+    this.chunkEmbeddingCache.set(cacheKey, cachedChunks);
   }
 
   /**
@@ -158,7 +182,7 @@ export class SearchService {
   }
 
   removeFileEmbedding(fileId: string): void {
-    this.embeddingCache.delete(fileId);
+    this.chunkEmbeddingCache.delete(this.cacheKey(fileId));
     this.db.removeEmbedding(fileId);
   }
 
@@ -168,20 +192,33 @@ export class SearchService {
     const results: SearchResult[] = [];
 
     for (const candidate of candidates) {
-      if (!this.embeddingCache.has(candidate.id)) {
-        await this.indexFileEmbedding(candidate.id);
-      }
-
-      const vector = this.embeddingCache.get(candidate.id);
-      if (!vector) {
+      const chunks = await this.getFileChunkVectors(candidate);
+      if (chunks.length === 0) {
         continue;
       }
 
-      const score = cosineSimilarity(queryEmbedding, vector);
+      let bestChunk: CachedChunkVector | null = null;
+      let bestScore = Number.NEGATIVE_INFINITY;
+      for (const chunk of chunks) {
+        const score = cosineSimilarity(queryEmbedding, chunk.vector);
+        if (score > bestScore) {
+          bestScore = score;
+          bestChunk = chunk;
+        }
+      }
+
+      if (!bestChunk) {
+        continue;
+      }
+
       results.push({
         ...candidate,
-        score,
-        rationale: `Semantic vector similarity (${this.embedder.modelLabel()}).`,
+        score: bestScore,
+        rationale: `Semantic vector similarity (${this.embedder.modelLabel()}) on chunk ${bestChunk.chunkIndex + 1}.`,
+        chunkIndex: bestChunk.chunkIndex,
+        chunkStartChar: bestChunk.startChar,
+        chunkEndChar: bestChunk.endChar,
+        snippet: bestChunk.contentPreview,
       });
     }
 
@@ -192,22 +229,79 @@ export class SearchService {
     const textResults = this.db.queryFilesByText(text, filters, 2_000);
     const semanticResults = await this.querySemantic(text, filters, 2_000);
     const semanticById = new Map(semanticResults.map((entry) => [entry.id, entry]));
+    const textById = new Map(textResults.map((entry) => [entry.id, entry]));
+    const candidateIds = new Set([...textById.keys(), ...semanticById.keys()]);
 
-    const combined = textResults.map((textResult) => {
-      const semanticResult = semanticById.get(textResult.id);
+    const combined = Array.from(candidateIds).map((id) => {
+      const textResult = textById.get(id);
+      const semanticResult = semanticById.get(id);
+      const baseResult = textResult ?? semanticResult;
+      if (!baseResult) {
+        throw new Error(`Missing search result for ${id}.`);
+      }
       const semanticScore = semanticResult?.score ?? 0;
-      const score = textResult.score * 0.5 + semanticScore * 0.5;
+      const keywordScore = textResult?.score ?? 0;
+      const score = keywordScore * 0.5 + semanticScore * 0.5;
 
       return {
-        ...textResult,
+        ...baseResult,
         score,
         rationale:
           semanticResult !== undefined
-            ? "Hybrid score combines keyword match and semantic similarity."
+            ? `Hybrid score combines keyword match and semantic chunk similarity.${semanticResult.snippet ? ` Best chunk: ${semanticResult.snippet}` : ""}`
             : "Keyword score only because semantic vector was unavailable.",
+        chunkIndex: semanticResult?.chunkIndex,
+        chunkStartChar: semanticResult?.chunkStartChar,
+        chunkEndChar: semanticResult?.chunkEndChar,
+        snippet: semanticResult?.snippet,
       };
     });
 
     return combined.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+
+  private cacheKey(fileId: string): string {
+    return `${this.embedder.modelLabel()}:${fileId}`;
+  }
+
+  private async getFileChunkVectors(file: FileRecord): Promise<CachedChunkVector[]> {
+    const cacheKey = this.cacheKey(file.id);
+    const cached = this.chunkEmbeddingCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const stored = this.db
+      .listEmbeddingChunks(file.id, this.embedder.modelLabel())
+      .filter((record) => record.updatedAt >= file.updatedAt);
+    const restored: CachedChunkVector[] = [];
+
+    for (const record of stored) {
+      const vector = this.parseVector(record.vectorRef);
+      if (vector) {
+        restored.push({ ...record, vector });
+      }
+    }
+
+    if (restored.length > 0) {
+      this.chunkEmbeddingCache.set(cacheKey, restored);
+      return restored;
+    }
+
+    await this.indexFileEmbedding(file.id);
+    return this.chunkEmbeddingCache.get(cacheKey) ?? [];
+  }
+
+  private parseVector(vectorRef: string): number[] | null {
+    try {
+      const parsed = JSON.parse(vectorRef) as unknown;
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+      const vector = parsed.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+      return vector.length > 0 ? vector : null;
+    } catch {
+      return null;
+    }
   }
 }
